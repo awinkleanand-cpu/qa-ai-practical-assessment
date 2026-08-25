@@ -1,10 +1,8 @@
 # Prism Structure — Playwright (Prism) Toolshop
 
-UI + API automation for [Practice Software Testing](https://practicesoftwaretesting.com/) using Playwright JavaScript and page objects.
+Local how-to for the Playwright JavaScript suite in this folder. The assessment README (overview, known SUT behavior, troubleshooting) is at the [repository root](../README.md). Do not contradict the scripts below.
 
-UI tests live in `tests/ui/`: **6 tests** (inside the 5–8 cap). Auth (`@smoke` register→login→profile; `@regression` wrong password; `@regression` duplicate email), cart (`@regression` qty clamp; `@regression` empty cart), and purchase (`@smoke @regression` search, multi-item cart, COD, Confirm twice, My invoices).
-
-API tests live in `tests/api/`: **7 tests** (inside the 5–8 cap). Lifecycle (`@smoke @regression` unique register → login token → products → cart → add two in-stock items → GET cart → COD invoice); `@regression` unauthenticated `POST /invoices` (401); `@regression` duplicate register (409); `@regression` wrong-password login (401); `@regression` malformed bearer on invoice (401); `@regression` invoice missing `cart_id` (422); `@regression` GET unknown cart (404). The API wiring spec was removed.
+UI + API automation for [Practice Software Testing](https://practicesoftwaretesting.com/). UI: **6** tests. API: **7** tests. Confirm twice is UI-only (`CheckoutPage.confirmTwice`); API invoice is one `POST /invoices`.
 
 ## Setup (Windows PowerShell)
 
@@ -15,31 +13,32 @@ npm install
 npx playwright install chromium
 ```
 
-`.env` is gitignored. `.env.example` contains **URLs only** (no passwords or tokens). Unique emails and passwords are generated at runtime (`users.createUniqueCustomer()`). Override the password with `TEST_PASSWORD` in `.env` if needed — do not commit it.
+`.env` is gitignored. `.env.example` contains **URLs only**. Unique emails and passwords come from `users.createUniqueCustomer()`. Optional `TEST_PASSWORD` in `.env` overrides `uniquePassword()` — do not commit it.
 
 ## npm scripts
 
+Verified against `package.json` (run from this folder):
+
 | Script | Command | What it runs |
 | --- | --- | --- |
-| `npm test` | `npx playwright test` | Full suite (6 UI tests + 7 API tests) |
-| `npm run test:smoke` | `--grep "@smoke"` | Tests tagged `@smoke` |
-| `npm run test:regression` | `--grep "@regression"` | Tests tagged `@regression` |
+| `npm test` | `npx playwright test` | Full suite (6 UI + 7 API) |
 | `npm run test:ui` | `--project=ui` | Browser UI project only |
 | `npm run test:api` | `--project=api` | API request project only |
+| `npm run test:smoke` | `--grep "@smoke"` | Tests tagged `@smoke` |
+| `npm run test:regression` | `--grep "@regression" --pass-with-no-tests` | Tests tagged `@regression` |
 | `npm run report` | `npx playwright show-report playwright-report` | Open the last HTML report |
 
-Quote `@smoke` / `@regression` if you run `npx playwright test --grep` directly in PowerShell (`@` is special there).
+Quote `@smoke` / `@regression` if you run `npx playwright test --grep` directly in PowerShell.
 
-## Tags
-
-Put `@smoke` or `@regression` in the **test title** (lowercase, grep-friendly). Playwright `--grep` filters on that title.
-
-- `@smoke` — smallest set that proves the shop can sell (auth + purchase E2E; API lifecycle)
-- `@regression` — negatives/edges inside the 5–8 cap (invalid login; duplicate email; qty clamp; empty cart; purchase E2E and API lifecycle also tagged so `test:regression` includes them; API unauthenticated invoice; API duplicate register; API wrong-password login; API malformed bearer; API invoice missing `cart_id`; API unknown cart 404)
+Config (`playwright.config.js`): projects `ui` and `api`; HTML reporter to `playwright-report/` with `open: 'never'`; `workers: 2`; grep is not in the config file.
 
 ## Reports
 
-HTML reporter writes to `PrismStructure/playwright-report/` (`open: 'never'`). Artifacts go to `PrismStructure/test-results/`. Both folders are gitignored until the business suite is green and reports need to be committed as execution evidence.
+After `npm test` (or any test script), run `npm run report` or open `playwright-report\index.html`. `playwright-report/` and `test-results/` are gitignored.
+
+## Test data
+
+Factories: `src/data/`. Placeholders: `../ai-prompts/test-data.md`. Manual CSV: `../FunctionalTestCase/functional-test-cases.csv`.
 
 ## Layout
 
@@ -53,13 +52,3 @@ PrismStructure/
 ├── src/utils/          env loader, unique email
 └── tests/ui|api/       specs
 ```
-
-## Test data
-
-Placeholders come from `ai-prompts/test-data.md` via `src/data/`. Each registration run must call `users.createUniqueCustomer()` so the email and password are unique (`user_{timestamp}{random}@example.com`).
-
-Confirm twice is **UI-only** (`CheckoutPage.confirmTwice`). API invoice is **one POST** (`InvoiceApiPage.create`).
-
-## Last validation (Prompt 16, 2026-08-26)
-
-Manual **8**, UI **6**, API **7** (all inside 5–8). `npx playwright test` retry **13 passed**; `test:smoke` **3 passed**; `test:regression` **12 passed**; `test:ui` retry **6 passed**; `test:api` **7 passed**. Report: `playwright-report/index.html`. No hardcoded credentials or JWTs in source; HTML report did not contain unique test passwords.

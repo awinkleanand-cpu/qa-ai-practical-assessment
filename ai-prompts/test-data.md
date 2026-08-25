@@ -1,82 +1,75 @@
 # AI Prompts – Test Data
 
-Prompts used to generate test data for UI + API.
+Unique users, NL billing vs Austria lookup, and Combination Pliers OOS. Facts from Prompts 8 and 14–16. QA engineer supplied those prompts; Cursor implemented.
 
 ---
 
-## Entry 1 — Prompt 4: Manual CSV test data
-
-**Date:** 2026-08-25
+## Entry 1
 
 ### Prompt
 
-(Same session as test-design Prompt 4.) Create 8 manual functional cases; unique emails for registration (`user_{timestamp}@example.com`); COD checkout; Confirm twice on UI; expected messages and qty clamp values where used. Persist reusable placeholders here because the CSV TestData column is substantial.
+(QA engineer — Prompt 8, data facts.) Implement UI registration/login with unique valid user data at runtime. Do not hardcode credentials.
 
 ### AI Response Summary
 
-Shared placeholders for the manual suite in `FunctionalTestCase/functional-test-cases.csv`. No secrets. No live data generated against the SUT. Automation payloads are not in this entry (API-AC2 example body already lives in `ai-prompts/requirements-and-planning.md`).
+Cursor generated unique emails at runtime (`user_{timestamp}{hex}@example.com`) via `users.createUniqueCustomer()`. Live register returned 422: “The given password has appeared in a data leak.” `Welcome1!` is HIBP-blocked on the public API. Passwords now come from `uniquePassword()` (`Aa1!` + hex) unless `TEST_PASSWORD` is set. Live v2.4 register form requires `house_number` (`data-test="house_number"`); Sprint 5 HTML had misled the first fill.
 
 ### Validation Notes
 
-- Password `Welcome1!` is an example that meets the documented register rule (8+, mixed case, number, symbol) — not a real credential.
-- Product names Combination Pliers / Thor Hammer are stable Sprint 5 catalog examples used with search queries Pliers / Hammer.
-- Qty bounds 1–99 and messages match Entry 1 UI map (`en.json` / CartService clamp).
-- `{timestamp}` must be replaced per run on the public SUT; never reuse a static email.
+Register without `house_number` showed “House number is required.” After `uniquePassword()`, auth smoke passed. `Welcome1!` remains a manual CSV example only, not a live automation password.
+
+### Changes I Made
+
+`PrismStructure/src/data/users.js`, `PrismStructure/src/utils/unique.js`, and `RegisterPage` (`house_number`). No static customer on the public shop.
+
+### Reason for Changes
+
+Leaked-password rejection and the live house-number field are SUT rules. Unique data is required on a shared shop.
 
 ---
 
-## Shared placeholders (manual TC-M-01..08)
-
-| Use | Value | Cases |
-| --- | --- | --- |
-| SUT | https://practicesoftwaretesting.com/ | All |
-| Unique email | `user_{timestamp}@example.com` (replace `{timestamp}` each run, e.g. `user_202608251430@example.com`) | TC-M-01, then reuse in 02 / 06 / 07 / 08 |
-| Valid password | `Welcome1!` | TC-M-01, TC-M-06+ |
-| Wrong password | `WrongPass1!` | TC-M-02 |
-| Register profile | First: Ava; Last: Mercer; DOB: 1990-01-15; Country: Austria; Postal: 1234AA; House: 1; Phone: 1234567890 | TC-M-01 |
-| Search / products | Query `Pliers` → Combination Pliers; query `Hammer` → Thor Hammer | TC-M-03, TC-M-04, TC-M-05 |
-| Qty edges | Increase to 2 (line total = unit × 2); `0` clamps to **1**; `100` caps at **99** + warning toast | TC-M-05 |
-| Billing (checkout) | Street: Test Street 1; City: Utrecht; State: Utrecht; Country: Austria; Postal: 1234AA | TC-M-06, TC-M-08 |
-| Payment | Cash on Delivery (`cash-on-delivery`); UI Confirm **twice** for a real invoice; once only for the negative | TC-M-06, TC-M-07, TC-M-08 |
-
-### Expected UI copy (assert these strings)
-
-| Message | When |
-| --- | --- |
-| Email is already in use. | Duplicate register — **not** expected in TC-M-01 (unique email). Covered in UI-04 auto, not in this CSV. |
-| Invalid email or password | TC-M-02 wrong password |
-| There are no products found. | Must **not** appear for search `Pliers` in TC-M-03 |
-| The cart is empty. Nothing to display. | Must **not** appear in TC-M-04 (two lines present). Empty-cart checkout is UI-07 auto, not a manual case. |
-
-### Isolation rules
-
-- New unique email per registration run; do not seed a shared public customer.
-- Fresh cart / browser session if a leftover badge is visible (`cart_id` is sessionStorage).
-- Registered user for COD + My invoices — never Continue as Guest for TC-M-06/07/08.
-- Wait after the first Confirm before the second (TC-M-06). TC-M-08 clicks Confirm **once** and waits ≥5 seconds without a second click.
-
----
-
-## Entry 2 — Prompt 11: API payloads vs official schema
-
-**Date:** 2026-08-26
+## Entry 2
 
 ### Prompt
 
-(Same session as test-design Prompt 11.) Confirm assessment invoice sample and existing `billing.js` / `users.js` payloads against live OpenAPI. Full endpoint/status table lives in `ai-prompts/test-design.md` Entry 8.
+(QA engineer — Prompts 14–15, billing data.) Run `@smoke` and fix real test defects. Do not weaken invoice asserts.
 
 ### AI Response Summary
 
-Existing automation payloads do **not** invent request fields. Gaps are response/status, not extra body keys. Full contract: `ai-prompts/test-design.md` Entry 8.
+Purchase invoice POST returned 422 because register profile country is `"Austria"` and postcode lookup of Austria + `1234AA` + house `1` returned a faker US address (Florida city). Checkout then sent `billing_country=NL` with that city. Live NL lookup is Idaerd / de Bruijnsingel / Limburg. `fillBilling` must wait for `/postcode-lookup?country=NL` and write that body. Austria is not a `<select>` option value, so waiting for country not-empty never succeeds.
 
-### API payload checklist (schema-backed)
+### Validation Notes
 
-| Payload | Location | Schema required | Notes |
-| --- | --- | --- | --- |
-| Register | `users.js` `apiPayload` | `first_name`, `last_name`, `email`, `password` | Also sends optional `dob`, `phone`, `address.*` — all in `UserRequest`. Password must meet min 8 + mixed/number/symbol; `Welcome1!` was HIBP-blocked on live register (use `uniquePassword()`). |
-| Login | `authApiPage.js` | `email`, `password` | Success body field: `access_token`. |
-| Add to cart | `cartApiPage.js` | `product_id`, `quantity` | Integer; no min/max in schema. |
-| Invoice COD | `billing.js` `invoicePayload` | `billing_street`, `billing_city`, `billing_state`, `billing_country`, `billing_postal_code`, `payment_method`, `payment_details`, `cart_id` | `payment_method: cash-on-delivery`; `payment_details: {}` = documented empty `CashOnDeliveryDetails`. Matches assessment sample keys. |
-| Assessment sample | PDF | Same required set | Sample `billing_country: "TG"`; helper uses `"Netherlands"`; UI checkout used `NL`. Schema is unconstrained string — format **UNCERTAIN**. |
+Live probe: `GET /postcode-lookup?country=Austria&postcode=1234AA&house_number=1` → Florida faker address; `country=NL` → Idaerd / de Bruijnsingel / Limburg. Invoice success expect was not changed to accept 422.
 
-Do not add undocumented invoice keys. Do not model Confirm-twice in the API payload. Do not assert GET-cart line-item property names from the spec (`CartResponse` documents `id` only).
+### Changes I Made
+
+`CheckoutPage.fillBilling` waits for the NL lookup response. API `billing.invoicePayload` uses NL + lookup street/city/state, not Utrecht/Netherlands or Austria/Florida. Dropped the country-not-empty wait in Prompt 15.
+
+### Reason for Changes
+
+NL + Florida city is an invalid checkout payload. The product lookup quirk is real; tests must send matching country and city.
+
+---
+
+## Entry 3
+
+### Prompt
+
+(QA engineer — Prompt 16, catalog data.) Run the full suite. Apply the smallest signal-based fix only for a clear test defect.
+
+### AI Response Summary
+
+Combination Pliers is Out of stock on the live shop. `findInStock` returned in-stock **Pliers**, but `hasText: 'Pliers'` + `.first()` opened Combination Pliers (substring). UI tests now open an in-stock product by exact heading. Preferred OOS name is not used as a fallback.
+
+### Validation Notes
+
+Screenshots and a11y snapshots showed Out of stock on Combination Pliers; API search listed `in_stock: false` for that name and `true` for Pliers. A regex on `data-test="product-name"` still timed out because card text is not only the heading.
+
+### Changes I Made
+
+`HomePage.productByName` / `ProductPage.waitForName` use `getByRole('heading', { name, exact: true })`. Cart/invoice line locators use exact name. `catalogProduct` no longer falls back to the preferred OOS name.
+
+### Reason for Changes
+
+Substring “Pliers” selected an OOS product. Exact heading selects the in-stock card.
