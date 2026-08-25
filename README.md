@@ -41,9 +41,11 @@ npx playwright install chromium
 
 | Command | What it runs |
 | --- | --- |
-| `npm test` | Full suite |
+| `npm test` | Full suite (6 UI + 7 API) |
 | `npm run test:smoke` | Tests tagged `@smoke` |
 | `npm run test:regression` | Tests tagged `@regression` |
+| `npm run test:ui` | Browser UI project only |
+| `npm run test:api` | API request project only |
 | `npm run report` | Open HTML report |
 
 Quote the tag if you call grep from PowerShell: `npx playwright test --grep "@smoke"`.
@@ -53,3 +55,13 @@ Tags are lowercase `@smoke` / `@regression` in the test title. Reports: `PrismSt
 UI tests (**6 / 8**, inside the 5–8 cap): `tests/ui/auth.spec.js` (register+login+profile `@smoke`; invalid login `@regression`; duplicate email `@regression`), `tests/ui/cart.spec.js` (qty clamp `@regression`; empty cart `@regression`), and `tests/ui/purchase.spec.js` (COD E2E tagged **both** `@smoke` and `@regression`).
 
 API tests (**7 / 8**, inside the 5–8 cap): `tests/api/lifecycle.spec.js` (`@smoke @regression` register → token → products → cart → COD invoice); `tests/api/auth.spec.js` (`@regression` invoice without bearer → 401; duplicate register → 409; wrong-password login → 401; malformed bearer → 401; invoice missing `cart_id` → 422); `tests/api/cart.spec.js` (`@regression` GET unknown cart → 404).
+
+## Prompt 16 — Last validation (2026-08-26)
+
+| Category | Count | In 5–8? |
+| --- | --- | --- |
+| Manual (`TC-M-01`…`08`) | 8 | Yes |
+| UI automation | 6 | Yes |
+| API automation | 7 | Yes |
+
+Full suite retry: **13 passed**. Smoke **3 passed**, regression **12 passed**, `test:ui` **6 passed**, `test:api` **7 passed**. HTML report: `PrismStructure/playwright-report/index.html` (gitignored). Secret scan: no hardcoded tokens/JWTs; `.env` gitignored. First full/`test:ui` runs had public-SUT flakes (ETIMEDOUT / register 500); re-runs were green. Combination Pliers is currently out of stock — UI tests open an in-stock product by exact heading name.

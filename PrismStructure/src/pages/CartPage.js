@@ -41,13 +41,13 @@ class CartPage {
   }
 
   lineByProduct(name) {
-    return this.page
-      .locator('tr')
-      .filter({ has: this.page.getByTestId('product-title').filter({ hasText: name }) });
+    return this.page.locator('tr').filter({
+      has: this.page.getByTestId('product-title').getByText(name, { exact: true }),
+    });
   }
 
   productTitle(name) {
-    return this.productTitles.filter({ hasText: name });
+    return this.productTitles.getByText(name, { exact: true });
   }
 
   qtyInputFor(name) {

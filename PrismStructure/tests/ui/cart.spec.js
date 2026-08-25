@@ -7,9 +7,7 @@ function parseMoney(text) {
 
 async function catalogProduct(productApi, search) {
   const found = await productApi.findInStock(search.query, search.name);
-  if (!found || !found.name) {
-    return search;
-  }
+  expect(found && found.name).toBeTruthy();
   return { query: search.query, name: found.name };
 }
 

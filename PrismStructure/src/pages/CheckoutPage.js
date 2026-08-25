@@ -1,3 +1,5 @@
+const { expect } = require('@playwright/test');
+
 class CheckoutPage {
   constructor(page) {
     this.page = page;
@@ -18,17 +20,42 @@ class CheckoutPage {
 
   async proceedFromSignIn() {
     await this.proceedSignIn.click();
+    await this.street.waitFor({ state: 'visible' });
   }
 
   async proceedFromBilling() {
     await this.proceedBilling.click();
   }
 
+  isPostcodeLookup(res, country) {
+    if (!res.url().includes('/postcode-lookup') || res.request().method() !== 'GET') {
+      return false;
+    }
+    try {
+      return new URL(res.url()).searchParams.get('country') === country;
+    } catch {
+      return false;
+    }
+  }
+
   async fillBilling(address) {
     await this.street.waitFor({ state: 'visible' });
-    await this.street.fill('');
-    await this.city.fill('');
-    await this.state.fill('');
+
+    // setAddress() patches GET /users/me asynchronously, then postal/house
+    // valueChanges call tryPostcodeLookup. Profile country is the full name
+    // "Austria", which is not a <select> option value, so the country control
+    // stays "". Austria + 1234AA still looks up faker Florida and patchValue
+    // writes street/city/state without checking the current country.
+    // Wait for postal/house + lookup idle (not country) before selecting NL.
+    await expect(this.postalCode).not.toHaveValue('');
+    await expect(this.houseNumber).not.toHaveValue('');
+    await this.postcodeLoading.waitFor({ state: 'hidden' });
+
+    const countryParam = address.countryCode || address.country;
+    const lookup = this.page.waitForResponse((res) =>
+      this.isPostcodeLookup(res, countryParam)
+    );
+
     if (address.countryCode) {
       await this.country.selectOption(address.countryCode);
     } else {
@@ -38,29 +65,29 @@ class CheckoutPage {
     if (address.houseNumber) {
       await this.houseNumber.fill(address.houseNumber);
     }
+
+    const lookupResponse = await lookup;
     await this.postcodeLoading.waitFor({ state: 'hidden' });
-    const lookupFilled = await this.page
-      .waitForFunction(
-        () => {
-          const street = document.querySelector('[data-test="street"]');
-          const city = document.querySelector('[data-test="city"]');
-          return Boolean(
-            street &&
-              city &&
-              String(street.value || '').trim() &&
-              String(city.value || '').trim()
-          );
-        },
-        null,
-        { timeout: 8000 }
-      )
-      .then(() => true)
-      .catch(() => false);
-    if (!lookupFilled) {
-      await this.street.fill(address.street);
-      await this.city.fill(address.city);
-      await this.state.fill(address.state);
+
+    let street = address.street;
+    let city = address.city;
+    let state = address.state;
+    if (lookupResponse.ok()) {
+      const result = await lookupResponse.json();
+      if (result.street) street = result.street;
+      if (result.city) city = result.city;
+      if (result.state) state = result.state;
     }
+
+    await this.street.fill(street);
+    await this.city.fill(city);
+    await this.state.fill(state);
+
+    // A late in-flight Austria lookup can still patch after the NL write.
+    await this.postcodeLoading.waitFor({ state: 'hidden' });
+    await this.street.fill(street);
+    await this.city.fill(city);
+    await this.state.fill(state);
   }
 
   async chooseCashOnDelivery() {

@@ -25,7 +25,9 @@ class InvoicesPage {
   }
 
   lineRow(productName) {
-    return this.page.getByRole('row').filter({ hasText: productName });
+    return this.page.getByRole('row').filter({
+      has: this.page.getByRole('cell', { name: productName, exact: true }),
+    });
   }
 
   async openDetailsFor(invoiceNumber) {

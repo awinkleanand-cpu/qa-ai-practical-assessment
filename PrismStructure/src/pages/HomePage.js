@@ -20,10 +20,13 @@ class HomePage {
     await this.searchInput.waitFor({ state: 'visible' });
     await this.searchInput.fill(query);
     await this.searchSubmit.click();
+    await this.page.getByRole('heading', { name: `Searched for: ${query}` }).waitFor({
+      state: 'visible',
+    });
   }
 
   productByName(name) {
-    return this.page.getByTestId('product-name').filter({ hasText: name });
+    return this.page.getByRole('heading', { name, exact: true });
   }
 
   async openProduct(name) {

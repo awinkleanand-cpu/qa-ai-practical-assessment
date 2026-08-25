@@ -186,3 +186,104 @@ Helped: live probes before coding. OpenAPI is silent on login errors; live wrong
 
 **Playwright (from `PrismStructure/`):** `npx playwright test tests/api --list` → **Total: 7 tests in 3 files**. `npx playwright test tests/api` → **7 passed (10.1s)**. Greps were not needed (ran `tests/api` directly; quote `@smoke` / `@regression` in PowerShell if used).
 
+---
+
+## Entry 8 — Prompt 14: Run smoke tests
+
+**Date:** 2026-08-26
+
+### Prompt
+
+Run the `@smoke` Playwright tests first. For every failure, classify product defect / test defect / test-data issue / locator issue / environment issue; show evidence; suggest the smallest correction. Do not weaken assertions or hide failures. Quote `--grep "@smoke"` on PowerShell. Do not drop `@smoke` from titles. Append this prompt here. Do not git commit unless a justified test fix was made — and even then do not commit unless asked.
+
+### AI Response Summary
+
+Listed 3 `@smoke` tests (UI auth register→login→profile; UI purchase E2E; API lifecycle). First run from `PrismStructure/`: **2 failed, 1 passed (36.2s)**. Applied a justified test/locator fix in `CheckoutPage.fillBilling` (wait for the **NL** postcode-lookup response and write those street/city/state values; do not treat “any non-empty street/city” as a successful NL lookup). Strengthened purchase asserts on country/city/street. Did not change invoice/login expects. Did not add `waitForTimeout`, `--retries`, or drop `@smoke`.
+
+Final run: **3 passed (44.1s)** (auth 7.5s, purchase 42.6s, API lifecycle 5.2s).
+
+### Debugging Outcome (how it helped or misled you)
+
+#### First run — `npx playwright test --grep "@smoke"` → **2 failed / 1 passed (36.2s)**
+
+| Test | Classification | Evidence | Smallest correction |
+| --- | --- | --- | --- |
+| UI auth `@smoke` register→login→profile | **environment issue** | `page.goto` `/auth/register` hung until **test timeout 30000ms** (`waitUntil: 'domcontentloaded'`). Trace/context: `test-results/auth-Registration-and-logi-c6beb-in-and-see-matching-profile-ui/error-context.md`. Same test **passed in 8.6s** on the next full run and **8.0s** isolated. Parallel worker vs public SUT/Cloudflare (same class as Prompt 10’s 6-worker `goto` timeouts). | Do not loosen the profile asserts. Re-run; keep `workers: 2`. Isolated auth smoke is the check if it flakes again. |
+| UI purchase `@smoke @regression` COD E2E | **test defect** (profile lookup race; not a locator miss) | Invoice POST **422** `billing_country does not match the entered address. The city does not belong to the selected country.` Request: `billing_street=Karelle Forest`, `billing_city=East Jamisonbury`, `billing_state=Florida`, `billing_country=NL`, `billing_postal_code=1234AA`. Screenshot: `test-results/purchase-Purchase-flow-smo-b2e54-heckout-COD-and-see-invoice-ui/test-failed-1.png`. Live probe: `GET /postcode-lookup?country=Austria&postcode=1234AA&house_number=1` → **200** `{ street: "Karelle Forest", city: "East Jamisonbury", state: "Florida" }`; `country=NL` → **200** Idaerd / de Bruijnsingel / Limburg. Register profile country is **Austria** (full name, not `AT`); checkout `fillBilling` selected **NL** but treated any filled street/city as the NL lookup. | Wait for `/postcode-lookup?country=NL`, then fill street/city/state from that body (or `billing.billingAddress`). Assert NL + Idaerd before Confirm. Do **not** change the invoice success expect to accept 422. |
+| API lifecycle `@smoke @regression` | Passed (7.0s) | — | — |
+
+Related (not the 422 itself): lookup for full name `"Austria"` / `"Netherlands"` returns faker US cities while `"AT"` 422s on postcode format and `"NL"` returns the real NL address. Product quirk; tests must send **NL** and not keep the Austria-lookup city.
+
+#### After fillBilling fix
+
+- Purchase **passed (47.0s)** then **(42.6s)**.
+- Auth failed once more under 2 workers: URL `/account` (My account + Favorites/Profile/Invoices) but `nav-menu` missing for 10s — header shows the user menu only when `name && role === 'user'`; `GET /users/me` had not populated `name`. Isolated auth **passed (8.0s / 9.6s)**. Classified **environment** (hung/slow `/users/me` under parallel public-SUT load). Did not increase expect timeout or drop the menu assert.
+
+**Playwright (from `PrismStructure/`):** `npx playwright test --grep "@smoke" --list` → **Total: 3 tests in 3 files**. First run **2 failed / 1 passed (36.2s)**. After test fix: **3 passed (44.1s)**. No git commit.
+
+---
+
+## Entry 9 — Prompt 15: Fix failures
+
+**Date:** 2026-08-26
+
+### Prompt
+
+Analyze the Playwright failure using the error, trace, screenshot, and relevant source files. Find the root cause. Apply the smallest reliable fix. Do not add arbitrary timeouts, fixed waits, force clicks, or broad exception handling. Explain how the fix preserves the intended test assertion.
+
+Context: Prompt 14 smoke ended 3 passed after a billing fix. First-run failures were (1) purchase 422 — Austria postcode lookup left a Florida city on NL checkout; `fillBilling` was changed to wait for `/postcode-lookup?country=NL`; (2) auth smoke flake — `goto('/auth/register')` 30s timeout; also `/account` without `nav-menu` (`GET /users/me`).
+
+### AI Response Summary
+
+Prompt 14’s NL `waitForResponse` is the right 422 fix and was kept. A follow-up wait for `country` not empty was a false signal: the profile country is the full name `"Austria"`, which is not a `<select>` option value, so the control stays `""` even after the Austria lookup has already written Florida street/city. Removed that country wait; wait for postal/house filled + `postcode-lookup-loading` hidden, then select NL and apply the NL lookup body. Added a success-only `nav-menu` wait in `LoginPage.login` after `POST /users/login` so the header is populated before tests assert it (failed login still does not wait). Did not add `waitForTimeout`, `{ force: true }`, or try/catch. Did not loosen invoice/profile asserts.
+
+### Debugging Outcome (how it helped or misled you)
+
+**Purchase 422 root cause (Prompt 14, still the product/test interaction):** Register profile country is `"Austria"` (API payload), not `AT`. Checkout `setAddress()` patches postal `1234AA` / house `1` from `GET /users/me`. `tryPostcodeLookup` then calls `GET /postcode-lookup?country=Austria&postcode=1234AA&house_number=1` → **200** `{ street: "Karelle Forest", city: "East Jamisonbury", state: "Florida" }` and `patchValue` writes those fields without checking the current country. Selecting **NL** afterward is not enough if the test treats any filled street/city as the NL result: `POST /invoices` then sends `billing_country=NL` + Florida city → **422** `billing_country does not match the entered address. The city does not belong to the selected country.` Live NL lookup is Idaerd / de Bruijnsingel / Limburg.
+
+**Prompt 15 failure — test defect (over-strict wait, not a locator miss):** First smoke this run **2 passed / 1 failed (37.0s)**. Purchase died in `fillBilling` at `expect(country).not.toHaveValue('')` (10s). Screenshot `test-results/purchase-Purchase-flow-smo-b2e54-heckout-COD-and-see-invoice-ui/test-failed-1.png`: country visually empty, postal **1234AA**, house **1**, street **Karelle Forest**, city **East Jamisonbury**. The Austria lookup had already finished; the native select never shows `"Austria"` because that string is not an option value (options use labels like “Austria” / “Netherlands (the)” with ISO values such as `NL`). Waiting for country to be non-empty can never succeed. `error-context.md` received `""` on the country combobox.
+
+**Fix (smallest signal-based):** Keep waiting for `/postcode-lookup?country=NL` and writing that street/city/state (and the late-lookup refill). Drop the country-not-empty expect. Wait for postal/house not empty + loading hidden so the profile lookup is idle before selecting NL. Purchase asserts stay `country` = `NL`, `city`/`street` = billing address (Idaerd / de Bruijnsingel) — the invoice success expect is unchanged and still rejects 422.
+
+**Auth:** `goto('/auth/register')` 30s hang was environment (public SUT); no timeout added. `/account` without `nav-menu` is a session race: menu renders only after `GET /users/me` sets `name`. `LoginPage.login` now waits for `POST /users/login`; if **ok**, waits for `nav-menu` visible (test timeout, not expect’s 10s). Wrong-password regression is unchanged (no menu wait on failed login). Tests still `expect(homePage.userMenu).toBeVisible()` / profile values.
+
+**Playwright (from `PrismStructure/`):** First this prompt **2 passed / 1 failed (37.0s)**. After the country-wait removal: `npx playwright test --grep "@smoke"` → **3 passed (34.1s)** (auth 13.9s, purchase 30.1s, API lifecycle 6.3s). No git commit.
+
+---
+
+## Entry 10 — Prompt 16: Final validation
+
+**Date:** 2026-08-26
+
+### Prompt
+
+Run the complete UI and API regression suite. Confirm all tests pass; UI, API, Smoke, and Regression commands work; HTML reports are generated; no credentials or tokens in code, logs, reports, or committed files; test counts stay in 5–8 for manual, UI, and API. If a test fails, classify and apply the smallest signal-based fix only for a clear test defect (no waitForTimeout/force/swallow). Append this prompt here. No git commit.
+
+### AI Response Summary
+
+**Counts (all inside 5–8; wiring specs gone):** Manual **8** (`TC-M-01`…`TC-M-08`); UI **6**; API **7**.
+
+**Commands (from `PrismStructure/`):**
+
+| Command | Result |
+| --- | --- |
+| `npx playwright test` / `npm test` | First run **12 passed / 1 failed** (API lifecycle `connect ETIMEDOUT` on `POST /carts/{id}`). Retry **13 passed (1.4m)**. |
+| `npm run test:smoke` | **3 passed (51.9s)** |
+| `npm run test:regression` | **12 passed (48.0s)** |
+| `npm run test:ui` | First run **4 passed / 2 failed** (register **500**; login hung). Retry **6 passed (52.2s)**. |
+| `npm run test:api` | **7 passed (16.1s)** |
+
+HTML report: `PrismStructure/playwright-report/index.html` (generated; gitignored).
+
+**Test defect fixed (not environment):** Combination Pliers is **Out of stock** on the live shop. `findInStock` correctly returned in-stock **Pliers**, but `hasText: 'Pliers'` + `.first()` opened Combination Pliers (substring). `HomePage.productByName` / `ProductPage.waitForName` now use `getByRole('heading', { name, exact: true })`. Cart/invoice line locators use exact name. `catalogProduct` no longer falls back to the preferred OOS name. Search waits for `Searched for: {query}`. After the fix, qty-clamp **passed (10.9s)** and purchase **passed (21.9s)**. No `waitForTimeout`, `{ force: true }`, or swallowed errors.
+
+**Environment (reported, not patched):** public SUT `ETIMEDOUT` / register **500**. Re-runs went green. Did not add retries.
+
+**Secret scan:** no hardcoded JWT / `Bearer ey…` / `TEST_PASSWORD=` in committed files. `.env` gitignored; `.env.example` URLs only. Runtime passwords from `uniquePassword()`. `Welcome1!` remains a **manual example** in the CSV and `test-data.md` (HIBP-blocked on live register). `WrongPass1!` is the intentional invalid-login string. HTML report had no unique `Aa1!…` passwords, JWTs, or `user_…@example.com` addresses. Reports/artifacts are gitignored.
+
+No git commit.
+
+### Debugging Outcome (how it helped or misled you)
+
+Helped: screenshots and a11y snapshots showed **Out of stock** on Combination Pliers while API search listed `in_stock: false` for that name and `true` for **Pliers**. The first locator “fix” (`hasText: /^Pliers$/` on `data-test="product-name"`) still timed out — catalog `product-name` text is the whole card, not the heading. Accessible **exact heading** matched the snapshot (`heading "Pliers" [level=5]`) and clicked the in-stock card. Environment 500/ETIMEDOUT on the shared SUT looked like product bugs until isolated re-runs passed the same assertions.
+

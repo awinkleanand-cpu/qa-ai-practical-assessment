@@ -11,7 +11,9 @@ class ProductPage {
   }
 
   async waitForName(name) {
-    await this.productName.filter({ hasText: name }).waitFor({ state: 'visible' });
+    await this.page.getByRole('heading', { name, exact: true }).waitFor({
+      state: 'visible',
+    });
   }
 
   async addToCart() {

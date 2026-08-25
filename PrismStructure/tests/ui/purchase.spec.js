@@ -7,9 +7,7 @@ function parseMoney(text) {
 
 async function catalogProduct(productApi, search) {
   const found = await productApi.findInStock(search.query, search.name);
-  if (!found || !found.name) {
-    return search;
-  }
+  expect(found && found.name).toBeTruthy();
   return { query: search.query, name: found.name };
 }
 
@@ -75,6 +73,9 @@ test.describe('Purchase flow', () => {
     await cartPage.proceed();
     await checkoutPage.proceedFromSignIn();
     await checkoutPage.fillBilling(billing.billingAddress);
+    await expect(checkoutPage.country).toHaveValue(billing.billingAddress.countryCode);
+    await expect(checkoutPage.city).toHaveValue(billing.billingAddress.city);
+    await expect(checkoutPage.street).toHaveValue(billing.billingAddress.street);
     await expect(checkoutPage.proceedBilling).toBeEnabled();
     await checkoutPage.proceedFromBilling();
 

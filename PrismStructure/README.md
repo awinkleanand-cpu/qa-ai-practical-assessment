@@ -59,3 +59,7 @@ PrismStructure/
 Placeholders come from `ai-prompts/test-data.md` via `src/data/`. Each registration run must call `users.createUniqueCustomer()` so the email and password are unique (`user_{timestamp}{random}@example.com`).
 
 Confirm twice is **UI-only** (`CheckoutPage.confirmTwice`). API invoice is **one POST** (`InvoiceApiPage.create`).
+
+## Last validation (Prompt 16, 2026-08-26)
+
+Manual **8**, UI **6**, API **7** (all inside 5–8). `npx playwright test` retry **13 passed**; `test:smoke` **3 passed**; `test:regression` **12 passed**; `test:ui` retry **6 passed**; `test:api` **7 passed**. Report: `playwright-report/index.html`. No hardcoded credentials or JWTs in source; HTML report did not contain unique test passwords.
