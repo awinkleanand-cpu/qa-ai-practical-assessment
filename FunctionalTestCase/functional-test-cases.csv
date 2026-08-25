@@ -1,1 +1,99 @@
-test_id,type,priority,title,preconditions,steps,expected_result,tags
+TestCaseID,RequirementID,Title,TestType,Tag,Priority,Preconditions,Steps,TestData,ExpectedResult,ActualResult,Status
+TC-M-01,UI-AC1,"Register a unique customer, log in, and verify My profile",Positive,Smoke,P1,"Browser on https://practicesoftwaretesting.com/. Tester is signed out. Use a unique email so this run cannot collide with other testers on the public SUT.","1. Open https://practicesoftwaretesting.com/.
+2. Click Sign in.
+3. Click Register your account.
+4. On Customer registration, enter First name, Last name, DOB (YYYY-MM-DD, 18+), Country, Postal code, House number (allow lookup to fill Street/City/State, or type them if lookup is slow), Phone, Email, and Password.
+5. Click Register.
+6. On Login, enter the same Email and Password; click Login.
+7. Open the user menu and choose My profile.
+8. Compare First name, Last name, and Email on Profile with the values from step 4.","SUT: https://practicesoftwaretesting.com/
+First name: Ava
+Last name: Mercer
+DOB: 1990-01-15
+Country: Austria
+Postal code: 1234AA
+House number: 1
+Phone: 1234567890
+Email: user_{timestamp}@example.com (replace {timestamp} with a unique value, e.g. user_202608251430@example.com)
+Password: Welcome1! (8+ characters, mixed case, number, symbol)","After Register the tester is sent to Login and the message ""Email is already in use."" is not shown.
+After Login the header shows the user menu (My account / My profile / My invoices / Sign out) instead of Sign in.
+My profile displays the same first name, last name, and email used at registration.",,
+TC-M-02,UI-AC1,Login with wrong password is rejected,Negative,Regression,P2,"A customer already registered in this session (complete TC-M-01 first, or register once with a unique email). Tester is signed out on /auth/login.","1. Open https://practicesoftwaretesting.com/auth/login (or click Sign in).
+2. Enter the registered Email from TestData.
+3. Enter the wrong Password from TestData (do not use the real password).
+4. Click Login.
+5. Observe the form, the URL, and the header (Sign in vs user menu).","Email: the unique address created in TC-M-01 (user_{timestamp}@example.com)
+Wrong password: WrongPass1!
+Do not use the valid password Welcome1!","The page shows the error ""Invalid email or password"".
+The tester remains on the login page (URL still /auth/login).
+Sign in remains visible; the user menu (My account / My invoices) is not shown. No authenticated session is created.",,
+TC-M-03,UI-AC2,Search returns a known catalog product,Positive,Smoke,P1,"Browser on the home catalog https://practicesoftwaretesting.com/. No login required.","1. Open https://practicesoftwaretesting.com/.
+2. In Search, type the query from TestData.
+3. Click Search (do not rely on typing Enter alone if the UI uses a Search button).
+4. Confirm product cards are listed.
+5. Open the matching product (Combination Pliers or the first Pliers result).","Search query: Pliers
+Expected product example: Combination Pliers
+Negative copy that must NOT appear for this query: There are no products found.","Search results include at least one product whose name matches ""Pliers"" (for example Combination Pliers).
+The empty-catalog message ""There are no products found."" is not shown.
+The product page shows the product name and an Add to cart control.",,
+TC-M-04,UI-AC2,Add two different products to the cart,Positive,Smoke,P1,"Home catalog. Cart must be empty: if a cart badge is already visible, open /checkout and use a fresh browser session (or clear site data) so leftover cart_id in sessionStorage is not reused. Login is optional for this case.","1. Search Pliers, open Combination Pliers (or the first Pliers result), click Add to cart.
+2. Return to the catalog (header home or Continue Shopping).
+3. Search Hammer, open Thor Hammer (or the first Hammer result), click Add to cart.
+4. Open the cart (header cart / /checkout step 1).
+5. Read Item, Quantity, Price, and Total for each line.","Product A: Combination Pliers (search: Pliers)
+Product B: Thor Hammer (search: Hammer)
+Quantity on add: default 1 for each
+Do not update quantity in this case (that is TC-M-05).","The cart lists two distinct product lines (Pliers and Hammer items).
+Each line quantity is 1.
+Line Price and cart Total equal the sum of both unit prices.
+Proceed to checkout is available. The cart badge reflects 2 items.
+Empty-cart copy ""The cart is empty. Nothing to display."" is not shown.",,
+TC-M-05,UI-AC2,Cart quantity clamps below 1 and above 99,Edge,Regression,P2,"At least one product is in the cart (complete TC-M-04, or add Combination Pliers once). Cart page (/checkout step 1) is open. Note the unit price of the first line before changing quantity.","1. On the first cart line, increase quantity to 2 (plus control or type 2 and leave the field). Confirm the line total equals unit price × 2 and the cart Total updates.
+2. Change the quantity input to 0 and leave the field (Tab or click away). Do not expect the line to be deleted.
+3. Change the quantity input to 100 and leave the field.
+4. Read the quantity, line total, and any toast/warning.","Starting product: Combination Pliers (or any in-cart line)
+Qty after increase: 2
+Qty under min: 0 (expect clamp to 1)
+Qty over max: 100 (expect cap 99)
+UI bounds: min 1, max 99","After step 1, quantity is 2 and line total = unit price × 2.
+After step 2, quantity is clamped to 1 (not 0, not removed). No error toast is required for 0.
+After step 3, quantity is capped at 99 and a warning toast is shown. Line total = unit price × 99.
+Unbounded quantity 100 is not kept.",,
+TC-M-06,UI-AC2,Complete Cash on Delivery checkout with Confirm twice,Positive,Smoke,P1,"Logged in as the unique customer from TC-M-01 (do not use Continue as Guest — guest has no My invoices). Cart contains at least one product from TC-M-04. If TC-M-05 left a line at quantity 99, set that line back to 1 before Proceed so this checkout is not a 99-unit order. Billing fields will be entered on checkout step 3.","1. Open the cart and click Proceed to checkout.
+2. If the wizard shows Sign in or Continue as Guest, stay signed in as the registered user (do not continue as guest).
+3. On Billing Address, enter Country, Postal code, House number, Street, City, and State from TestData. Click Proceed to checkout when the button is enabled.
+4. On Payment Method, select Cash on Delivery.
+5. Click Confirm once. Wait until the payment check finishes (message or enabled state updates). Do not treat this click as order complete.
+6. Click Confirm a second time.
+7. Read the success view for an invoice number.","Payment method: Cash on Delivery (cash-on-delivery)
+Billing street: Test Street 1
+Billing city: Utrecht
+Billing state: Utrecht
+Billing country: Austria (or the same country used at registration)
+Billing postal code: 1234AA
+Invoice rule: press Confirm twice on the UI (first click = payment check only; second click creates the invoice)
+Wait between the two Confirm clicks; do not double-click immediately.","Proceed to checkout on billing is disabled until the address is valid, then enabled.
+First Confirm does not finish the order by itself (no final invoice as the only outcome of a single click).
+After the second Confirm, a success/thank-you view shows an invoice number.
+The payment method used is Cash on Delivery.",,
+TC-M-07,UI-AC2,Verify COD invoice under My invoices,Positive,Smoke,P1,"TC-M-06 has just succeeded in this session. Copy the invoice number from that success view. Tester is still logged in as the same unique customer. Do not start a new checkout as part of this case — this case only opens My invoices. If TC-M-06 was skipped, execute TC-M-06 first, then continue here.","1. From the user menu, open My invoices (do not stop at the success screen).
+2. Find the row whose invoice number matches the number from checkout.
+3. Open Details.
+4. Check invoice number, date, total, billing address, payment method, product names, and quantities against the cart used in TC-M-06.","Invoice number: the value shown after the second Confirm in TC-M-06
+Payment method expected: Cash on Delivery / cash-on-delivery
+Billing: same street, city, state, country, postal code entered at checkout
+Lines/qty: same products and quantities as the cart at Confirm
+Menu path: user menu → My invoices → Details","The invoice is listed under My invoices, not only on the payment success screen.
+Details show the same invoice number, a date, a total matching the cart, billing matching checkout, payment method Cash on Delivery (or cash-on-delivery), and line items/quantities matching the cart.",,
+TC-M-08,UI-AC2,Single Confirm on COD checkout does not create an invoice,Negative,Regression,P2,"Logged in as a registered customer (TC-M-01). Cart has at least one product (add again if TC-M-06 emptied the cart). Open My invoices first and record the current invoice count and numbers. Start a fresh checkout; do not reuse a payment page that already received two Confirms.","1. Open My invoices and record the current invoice count and numbers. Return to the shop.
+2. Open the cart and click Proceed to checkout. Complete Billing Address with the same valid data as TC-M-06.
+3. Select Payment Method Cash on Delivery.
+4. Click Confirm exactly once.
+5. Wait at least 5 seconds for the payment check to finish. Do not click Confirm again.
+6. Observe whether a success view with a new invoice number appears.
+7. Open My invoices again and compare with the list from step 1.","Payment method: Cash on Delivery
+Confirm clicks: 1 only (negative of the assessment Confirm-twice rule)
+Wait: ≥5 seconds after the first Confirm
+Do not immediately double-click Confirm (that can fire two payment checks and still create zero invoices, which is a different race).","The tester remains on the payment step (or does not get a completed-order success with a new invoice number).
+My invoices count and numbers are unchanged — no new invoice row is created.
+This matches the UI quirk: the first Confirm only runs payment validation (/payment/check); the invoice is created on the second Confirm.",,

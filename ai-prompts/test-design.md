@@ -307,10 +307,86 @@ Risk tables for all major Toolshop flows with extra depth on auth, cart, COD che
 | --- | --- | --- | --- | --- |
 | UI auto | **7 / 8** | UI-01..07 | 01–03 | 04–07 |
 | API auto (planned) | **7 / 8** | API-01..07 | 01–04 | 05–07 |
-| Manual CSV | **≤8**, only OUT-M gaps | Empty/weak register; billing required; payment method required; search no results; (optional) sign out | — | those rows |
+| Manual CSV | **8 / 8** | TC-M-01..08 (Prompt 4; Core AC covers, not OUT-M-only) | 01, 03, 04, 06, 07 | 02, 05, 08 |
 
 **Spare slot:** one UI and one API slot unused. Do not fill them unless a P1 flake forces a split (e.g. Confirm-twice extracted from UI-03). Prefer keeping the E2E intact.
 
 **State-machine intent (Core AC, Toolshop mapping):** empty cart ↛ checkout; qty &lt;1 or &gt;99 ↛ unbounded; duplicate email ↛ second account; bad login ↛ session; first Confirm ↛ invoice; no token ↛ invoice POST. No comment/ticket statuses.
 
 **Explicitly not in any 5–8 set:** guest checkout, non-COD payments, discounts, rentals, favorites, contact, chat widget, 2FA, social login, forgot password, PDF, filters, comparison, admin, invented comment CRUD.
+
+---
+
+## Entry 3 — Prompt 4: Manual functional test CSV
+
+**Date:** 2026-08-25
+
+### Prompt
+
+Create 8 manual functional test cases for Practice Software Testing Toolshop.
+
+Cover: Registration and login; Invalid login; Product search; Adding multiple products to cart; Updating quantity; Cash on Delivery checkout; Invoice verification; One edge or negative checkout scenario.
+
+CSV structure: TestCaseID,RequirementID,Title,TestType,Tag,Priority,Preconditions,Steps,TestData,ExpectedResult,ActualResult,Status.
+
+Use Smoke or Regression tags. Include positive, negative, and edge tests. Leave ActualResult and Status blank. Do NOT write Playwright/automation code.
+
+Honor prior decisions: exactly 8 cases (cap max); RequirementID = UI-AC1 / UI-AC2; Confirm twice on UI; unique emails `user_{timestamp}@example.com`; COD; 8th case = confirm-once (empty cart is already UI-07 in auto). Align with UI-01..07 where sensible.
+
+### AI Response Summary
+
+Wrote **8** human-executable cases in `FunctionalTestCase/functional-test-cases.csv` (replaced the stub header). Prompt 4’s eight covers are **one case each**, split more step-by-step than UI-03, still inside the manual 5–8 cap. 8th case is **confirm-once** (CONF-04 / INV-05), not empty cart (already UI-07) and not qty clamp as the checkout negative (qty clamp is TC-M-05 / UI-06). No automation code.
+
+| ID | Title | Tag | TestType | Prompt 4 cover | Aligns with |
+| --- | --- | --- | --- | --- | --- |
+| TC-M-01 | Register a unique customer, log in, and verify My profile | Smoke | Positive | Registration and login | UI-01 + UI-02; UI-AC1 |
+| TC-M-02 | Login with wrong password is rejected | Regression | Negative | Invalid login | UI-05; UI-AC1 |
+| TC-M-03 | Search returns a known catalog product | Smoke | Positive | Product search | PRD-01 inside UI-03; UI-AC2 |
+| TC-M-04 | Add two different products to the cart | Smoke | Positive | Adding multiple products to cart | CART-01 inside UI-03; UI-AC2 |
+| TC-M-05 | Cart quantity clamps below 1 and above 99 | Regression | Edge | Updating quantity | UI-06; UI-AC2 |
+| TC-M-06 | Complete Cash on Delivery checkout with Confirm twice | Smoke | Positive | Cash on Delivery checkout | CHK-01 / CONF-01–02 inside UI-03; UI-AC2 |
+| TC-M-07 | Verify COD invoice under My invoices | Smoke | Positive | Invoice verification | INV-01–03 inside UI-03; UI-AC2 |
+| TC-M-08 | Single Confirm on COD checkout does not create an invoice | Regression | Negative | One edge or negative checkout | CONF-04 / INV-05 (OUT of auto); UI-AC2 |
+
+**Count:** 8 / 8. Smoke 5 (M-01, M-03, M-04, M-06, M-07). Regression 3 (M-02, M-05, M-08). Positive 5 / Negative 2 / Edge 1. Priorities: P1 on sell/auth/invoice paths; P2 on bad login, qty clamp, confirm-once.
+
+**Not in this CSV (still OUT, documented earlier):** duplicate email (UI-04 covers it in auto); empty cart (UI-07); empty/weak register; billing-disabled; payment method required; search no results; sign out.
+
+### Validation Notes
+
+- Prompt 4’s eight named covers **override** the Prompt 3 line that said the manual CSV should only fill OUT-M gaps. Manual now mirrors Core AC1/AC2 for a human tester; leftover OUT-M rows stay in the inventory, not in the CSV.
+- Confirm-once is the 8th case because empty-cart checkout is already UI-07 and qty clamp is already TC-M-05 / UI-06. Confirm-once was OUT of UI auto (flake if automated as a dedicated test) and is high value for a manual negative checkout.
+- Invoice rule: TC-M-06 instructs wait then **Confirm twice**; TC-M-07 asserts **My invoices** (not success screen alone); TC-M-08 asserts one Confirm creates **no** new invoice row.
+- Unique email placeholder `user_{timestamp}@example.com`; password example `Welcome1!` meets 8+ mixed case, number, symbol. Known catalog names Combination Pliers / Thor Hammer (search Pliers / Hammer). Qty expected 0→1 and 100→99 with toast. Copy: “Invalid email or password”, “Email is already in use.” (not expected on unique register), “There are no products found.” (must not appear on Pliers), “The cart is empty. Nothing to display.” (must not appear on TC-M-04).
+- ActualResult and Status columns are empty (not executed). Tags are Smoke / Regression only (no sanity). CSV quoting uses RFC 4180 for commas/newlines in Steps.
+- Live UI click-through still not used this session (same Cloudflare limit as prior entries). Labels and Confirm-twice behavior unchanged from Entry 1 source notes.
+- README now points at `FunctionalTestCase/functional-test-cases.csv`. Shared placeholders also recorded in `ai-prompts/test-data.md`. No Playwright. No git commit.
+
+---
+
+## Entry 4 — Prompt 5: Review test coverage (manual CSV)
+
+**Date:** 2026-08-25
+
+### Prompt
+
+Review `FunctionalTestCase/functional-test-cases.csv` against the assessment requirements.
+
+Check: requirement traceability; positive/negative/edge coverage; Smoke vs Regression; clear preconditions and expected results; duplicate or low-value cases; maximum 5–8 manual tests.
+
+Prior decisions: 5–8 manual max; TC-M-01..08; Confirm twice; UI-AC1/AC2; Smoke vs Regression; confirm-once is TC-M-08; qty clamp TC-M-05.
+
+Do a real QA review of the CSV content (open the file, parse rows). Do not write Playwright. List problems first, then only necessary corrections. Apply real defects only. Append this review here. Do not git commit.
+
+### AI Response Summary
+
+Parsed 8 data rows × 12 columns (RFC 4180). Suite already met the cap, traceability (UI-AC1/AC2), type mix (5 Positive / 2 Negative / 1 Edge), Smoke/Regression split, and blank ActualResult/Status. Real defects were sequential-state and split-case duplication, not missing covers. Applied **four small field edits** in `FunctionalTestCase/functional-test-cases.csv`; still **8 / 8**. No new cases. No Playwright.
+
+### Validation Notes
+
+- **Changed — TC-M-06 Preconditions:** sequential run after TC-M-05 leaves quantity at 99, but 06 said “quantity may be 1.” Tester must reset that line to **1** before Proceed.
+- **Changed — TC-M-07 Preconditions:** removed “or repeat logged-in COD checkout.” 07 is My invoices only; if 06 was skipped, run 06 first, then continue — do not treat a second full E2E as this case.
+- **Changed — TC-M-07 ExpectedResult:** dropped the guest-user sentence (not an observable result of this case’s steps; guest ban already lives in 06 preconditions).
+- **Changed — TC-M-08 ExpectedResult:** dropped the empty-cart / UI-07 design note (not an assertion of confirm-once).
+- **Not changed (reviewed, not defects):** TC-M-01 vs 06/07/08 is a user **dependency**, not a duplicate; TC-M-03 vs 04 share a Pliers search but assert different outcomes (catalog vs two-line cart); 06 vs 07 **split** is the Prompt 4 cover split, not a merge; Smoke tags on 01/03/04/06/07 stay; RequirementIDs stay UI-AC1 (01–02) and UI-AC2 (03–08); count stays 8; quoting and blank ActualResult/Status were already correct.
+- Re-parsed after edits: 8 rows, 12 fields, ActualResult/Status empty. No git commit.
