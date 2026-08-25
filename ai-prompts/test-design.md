@@ -390,3 +390,61 @@ Parsed 8 data rows × 12 columns (RFC 4180). Suite already met the cap, traceabi
 - **Changed — TC-M-08 ExpectedResult:** dropped the empty-cart / UI-07 design note (not an assertion of confirm-once).
 - **Not changed (reviewed, not defects):** TC-M-01 vs 06/07/08 is a user **dependency**, not a duplicate; TC-M-03 vs 04 share a Pliers search but assert different outcomes (catalog vs two-line cart); 06 vs 07 **split** is the Prompt 4 cover split, not a merge; Smoke tags on 01/03/04/06/07 stay; RequirementIDs stay UI-AC1 (01–02) and UI-AC2 (03–08); count stays 8; quoting and blank ActualResult/Status were already correct.
 - Re-parsed after edits: 8 rows, 12 fields, ActualResult/Status empty. No git commit.
+
+---
+
+## Entry 5 — Prompt 8: UI-01 + UI-02 combined in automation
+
+**Date:** 2026-08-25
+
+### Prompt
+
+(Same session as automation Prompt 8.) Implement successful registration and login as **one** `@smoke` test and invalid login as **one** `@regression` test. Do not keep UI-01 and UI-02 as separate automated tests.
+
+### AI Response Summary
+
+Automation IDs/tags for the implemented pair:
+
+| Implemented spec | Title tag | Covers planned IDs | Maps to |
+| --- | --- | --- | --- |
+| `tests/ui/auth.spec.js` | `@smoke` | **UI-01 + UI-02** (combined) | TC-M-01 |
+| `tests/ui/auth.spec.js` | `@regression` | **UI-05** | TC-M-02 |
+
+UI-01 and UI-02 remain the design IDs; they are one Playwright test so the 5–8 cap is not doubled. Remaining planned UI: UI-03, UI-04, UI-06, UI-07 (combined planned set = **6** UI tests, still inside 5–8). UI wiring homepage smoke was removed.
+
+### Validation Notes
+
+- Tags stay lowercase `@smoke` / `@regression` in the test title (grep-friendly).
+- Unique customer at runtime; invalid login seeds via API then UI-logs in with `users.wrongPassword()`.
+- No change to manual CSV IDs TC-M-01 / TC-M-02.
+
+---
+
+## Entry 6 — Prompt 9: UI-03 purchase E2E with both tags
+
+**Date:** 2026-08-25
+
+### Prompt
+
+Implement the Toolshop purchase flow as a Playwright UI test: log in with a registered user, browse/search, add multiple products, update quantity, verify cart, COD checkout with Confirm twice, My invoices. Tag the test `@smoke` and `@regression`. Keep the 5–8 UI cap (3 specs/tests after this: 2 auth + 1 E2E).
+
+### AI Response Summary
+
+Implemented **one** combined E2E in `PrismStructure/tests/ui/purchase.spec.js` titled `@smoke @regression unique customer can search, update cart, checkout COD, and see invoice`. Covers planned **UI-03** (and manual TC-M-03..07 happy path in one auto test). Both tags are in the title so `npm run test:smoke` and `npm run test:regression` include it. No extra purchase variants.
+
+| Implemented spec | Title tags | Covers planned IDs | Maps to |
+| --- | --- | --- | --- |
+| `tests/ui/auth.spec.js` | `@smoke` | UI-01 + UI-02 | TC-M-01 |
+| `tests/ui/auth.spec.js` | `@regression` | UI-05 | TC-M-02 |
+| `tests/ui/purchase.spec.js` | `@smoke` **and** `@regression` | **UI-03** | TC-M-03..07 (combined) |
+
+**UI automated count:** **3 / 8** (was 2). Remaining planned: UI-04, UI-06, UI-07 (combined planned set still **6**, inside 5–8).
+
+### Validation Notes
+
+- Seed unique customer via API, then UI login (not UI register). Fresh browser context; `sessionStorage.cart_id` cleared after login.
+- Confirm twice waits for `POST /payment/check` **and** `data-test="payment-success-message"` before the second Confirm; then waits for `POST /invoices`. No `waitForTimeout`.
+- Product names resolved from `GET /products/search` against catalog (Pliers / Combination Pliers, Hammer / Thor Hammer).
+- Checkout billing uses **NL** + `1234AA` (invoice API rejects `Austria` + `1234AA`); street/city come from postcode lookup.
+- Assertions: two different cart lines, raised qty reflected in line total, COD selected, invoice number after two confirms, My invoices details show COD + line qty.
+- Manual CSV IDs unchanged (still split TC-M-03..07).
