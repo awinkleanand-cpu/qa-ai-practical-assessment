@@ -2,7 +2,9 @@
 
 UI + API automation for [Practice Software Testing](https://practicesoftwaretesting.com/) using Playwright JavaScript and page objects.
 
-UI tests live in `tests/ui/`: auth (`@smoke` register→login→profile; `@regression` wrong password) and purchase (`@smoke @regression` search, multi-item cart, COD, Confirm twice, My invoices). Remaining UI-04/06/07 and API-01..07 are later prompts. One API wiring test still proves the `api` project runs.
+UI tests live in `tests/ui/`: **6 tests** (inside the 5–8 cap). Auth (`@smoke` register→login→profile; `@regression` wrong password; `@regression` duplicate email), cart (`@regression` qty clamp; `@regression` empty cart), and purchase (`@smoke @regression` search, multi-item cart, COD, Confirm twice, My invoices).
+
+API tests live in `tests/api/`: **7 tests** (inside the 5–8 cap). Lifecycle (`@smoke @regression` unique register → login token → products → cart → add two in-stock items → GET cart → COD invoice); `@regression` unauthenticated `POST /invoices` (401); `@regression` duplicate register (409); `@regression` wrong-password login (401); `@regression` malformed bearer on invoice (401); `@regression` invoice missing `cart_id` (422); `@regression` GET unknown cart (404). The API wiring spec was removed.
 
 ## Setup (Windows PowerShell)
 
@@ -19,7 +21,7 @@ npx playwright install chromium
 
 | Script | Command | What it runs |
 | --- | --- | --- |
-| `npm test` | `npx playwright test` | Full suite (UI auth + API wiring) |
+| `npm test` | `npx playwright test` | Full suite (6 UI tests + 7 API tests) |
 | `npm run test:smoke` | `--grep "@smoke"` | Tests tagged `@smoke` |
 | `npm run test:regression` | `--grep "@regression"` | Tests tagged `@regression` |
 | `npm run test:ui` | `--project=ui` | Browser UI project only |
@@ -32,8 +34,8 @@ Quote `@smoke` / `@regression` if you run `npx playwright test --grep` directly 
 
 Put `@smoke` or `@regression` in the **test title** (lowercase, grep-friendly). Playwright `--grep` filters on that title.
 
-- `@smoke` — smallest set that proves the shop can sell (auth + purchase E2E; API-01..04 later)
-- `@regression` — negatives/edges inside the 5–8 cap (invalid login; purchase E2E also tagged so `test:regression` includes it; UI-04/06/07 / API-05..07 later)
+- `@smoke` — smallest set that proves the shop can sell (auth + purchase E2E; API lifecycle)
+- `@regression` — negatives/edges inside the 5–8 cap (invalid login; duplicate email; qty clamp; empty cart; purchase E2E and API lifecycle also tagged so `test:regression` includes them; API unauthenticated invoice; API duplicate register; API wrong-password login; API malformed bearer; API invoice missing `cart_id`; API unknown cart 404)
 
 ## Reports
 

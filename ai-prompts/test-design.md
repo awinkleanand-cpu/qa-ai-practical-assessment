@@ -199,7 +199,7 @@ Risk tables for all major Toolshop flows with extra depth on auth, cart, COD che
 | Tag | @Smoke or @Regression (inside the 5–8 cap, not extra) |
 | Auto | **IN-UI** = UI-01..07; **IN-API** = recommended API-01..07; **OUT-M** = candidate for the manual 5–8 CSV; **OUT** = not this assignment |
 
-**Recommended API set (implied, not coded):** API-01 register @Smoke; API-02 login→token @Smoke; API-03 POST cart + add products + GET cart @Smoke; API-04 POST COD invoice + GET number/COD/lines @Smoke; API-05 duplicate email @Regression; API-06 bad login @Regression; API-07 unauthenticated `POST /invoices` @Regression.
+**Recommended API set (Prompt 3; Prompt 12 coded 3; Prompt 13 added negatives to 7):** API-01 register @Smoke; API-02 login→token @Smoke; API-03 POST cart + add products + GET cart @Smoke; API-04 POST COD invoice + GET number/COD/lines @Smoke; API-05 duplicate email @Regression; API-06 bad login @Regression; API-07 unauthenticated `POST /invoices` @Regression. Prompt 12 combined API-01..04 into one lifecycle test and coded API-05 and API-07. Prompt 13 added API-06 (live login **401** `{ error: "Unauthorized" }`), malformed-bearer invoice **401**, GET unknown cart **404**, and invoice missing `cart_id` **422**.
 
 ---
 
@@ -253,7 +253,7 @@ Risk tables for all major Toolshop flows with extra depth on auth, cart, COD che
 | CHK-05 | Guest checkout | UI supports guest + `guest_email` on payload | Guest never sees **My invoices** | **User:** AC2 fails if we use guest. Not a product bug; wrong test design | P2 | UI | @Regression | **OUT** (registered user only) |
 | CHK-06 | Bank / card / BNPL / gift card | Other methods have extra validators | Wrong regex/required on non-COD | **User:** those methods fail. Out of AC2 | P3 | UI | @Regression | **OUT** |
 | CHK-07 | Checkout while logged out | Must Sign in or Continue as Guest | Logged-out user reaches payment | **User:** blocked or guest-only invoice | P2 | UI | @Regression | **OUT** (UI-03 starts logged in) |
-| CHK-08 | POST invoice missing `cart_id` / bad cart | API 404/422 | Invoice without lines | **Money:** empty or failed order. **Data:** 404 noise | P2 | API | @Regression | **OUT** if API-07 takes the last negative slot |
+| CHK-08 | POST invoice missing `cart_id` / bad cart | API 404/422 | Invoice without lines | **Money:** empty or failed order. **Data:** 404 noise | P2 | API | @Regression | **IN-API** Prompt 13 (missing `cart_id` → live **422**) |
 
 ---
 
@@ -305,11 +305,11 @@ Risk tables for all major Toolshop flows with extra depth on auth, cart, COD che
 
 | Type | Count | IDs | Smoke | Regression |
 | --- | --- | --- | --- | --- |
-| UI auto | **7 / 8** | UI-01..07 | 01–03 | 04–07 |
-| API auto (planned) | **7 / 8** | API-01..07 | 01–04 | 05–07 |
+| UI auto | **6 / 8** | UI-01..07 (UI-01+02 combined) | 01–03 | 03–07 |
+| API auto (implemented, Prompt 13) | **7 / 8** | lifecycle (API-01..04 combined); API-05; API-06; API-07; cart 404; invoice 422; malformed bearer | lifecycle | lifecycle, API-05..07, cart 404, invoice 422, malformed bearer |
 | Manual CSV | **8 / 8** | TC-M-01..08 (Prompt 4; Core AC covers, not OUT-M-only) | 01, 03, 04, 06, 07 | 02, 05, 08 |
 
-**Spare slot:** one UI and one API slot unused. Do not fill them unless a P1 flake forces a split (e.g. Confirm-twice extracted from UI-03). Prefer keeping the E2E intact.
+**Spare slot:** two UI and **one** API slot unused. Do not fill them unless a P1 flake forces a split. Prefer keeping the E2E intact. API-06 (bad login) is now IN: OpenAPI lists **no** login error codes; live probe is **401** `{ error: "Unauthorized" }`. Skipped optional add-item invalid `product_id` (live **422**) so the suite stays at 7 / 8.
 
 **State-machine intent (Core AC, Toolshop mapping):** empty cart ↛ checkout; qty &lt;1 or &gt;99 ↛ unbounded; duplicate email ↛ second account; bad login ↛ session; first Confirm ↛ invoice; no token ↛ invoice POST. No comment/ticket statuses.
 
@@ -448,3 +448,306 @@ Implemented **one** combined E2E in `PrismStructure/tests/ui/purchase.spec.js` t
 - Checkout billing uses **NL** + `1234AA` (invoice API rejects `Austria` + `1234AA`); street/city come from postcode lookup.
 - Assertions: two different cart lines, raised qty reflected in line total, COD selected, invoice number after two confirms, My invoices details show COD + line qty.
 - Manual CSV IDs unchanged (still split TC-M-03..07).
+
+---
+
+## Entry 7 — Prompt 10: Additional UI scenarios (implemented set)
+
+**Date:** 2026-08-25
+
+### Prompt
+
+(Same session as automation Prompt 10.) Add the highest-value missing UI scenarios without duplicating the purchase E2E. Keep the suite in the 5–8 cap. Target **6** tests: existing 3 + UI-04 duplicate email + UI-06 qty clamp + UI-07 empty cart. Optional search-no-results only as a cheap 7th.
+
+### AI Response Summary
+
+Implemented UI automation is now **6 Playwright tests**. Two carry `@smoke` (combined auth + COD E2E). Five carry `@regression` (invalid login, duplicate email, qty clamp, empty cart, and the same E2E). Design IDs UI-01..07 are all covered because UI-01 and UI-02 remain one combined smoke test.
+
+| Playwright test | Tag in title | Design ID | Type |
+| --- | --- | --- | --- |
+| unique customer can register, log in, and see matching profile | `@smoke` | UI-01 + UI-02 | Positive |
+| login with wrong password is rejected | `@regression` | UI-05 | Negative |
+| unique customer can search, update cart, checkout COD, and see invoice | `@smoke @regression` | UI-03 | Positive E2E |
+| register with an email already in use is rejected | `@regression` | **UI-04** | Negative |
+| cart quantity clamps below 1 and above 99 | `@regression` | **UI-06** | Edge (cart) |
+| empty cart shows empty copy and hides proceed to checkout | `@regression` | **UI-07** | Negative (cart/checkout) |
+
+**Count:** **6 / 8** Playwright UI tests. Spare slot unused. Not added: second COD E2E, confirm-once, search no-results.
+
+**Live v2.4 vs earlier design copy:** duplicate email UI is **“A customer with this email address already exists.”** (HTTP 409), not “Email is already in use.” Qty max toast is **“You can order at most 99 of this product.”** Empty-cart copy matches design when a cart exists with zero lines.
+
+### Validation Notes
+
+- Cap honored: 6 listed tests, no E2E duplicate.
+- UI-04 seeds via API then submits the same email on the register form.
+- UI-06: qty `0` stays a line at **1**; qty `100` caps at **99** with the warning toast; line total compared numerically (`$1,400.85`).
+- UI-07: empty `POST /carts` bound into `sessionStorage` (a missing `cart_id` does not render the empty copy). Proceed is not in the DOM.
+- Manual CSV unchanged (8 / 8). Search no-results stays OUT of UI auto.
+
+---
+
+## Entry 8 — Prompt 11: API investigation (official contract)
+
+**Date:** 2026-08-26
+
+### Prompt
+
+Review https://api.practicesoftwaretesting.com/api/documentation. Identify exact endpoints, request bodies, authentication, and expected status codes for: user registration, login, product retrieval, cart creation, adding products to cart, cart verification, invoice generation. Do not guess undocumented fields. Report documentation uncertainty before writing tests. Do not write Playwright/API tests.
+
+### AI Response Summary
+
+Fetched the live OpenAPI 3.2.0 spec (**Toolshop API v5.0.0**) from `https://api.practicesoftwaretesting.com/docs`. Swagger UI at `/api/documentation` is an HTML shell (markdown fetch showed chrome only). `/openapi.json`, `/swagger.json`, `/api-docs`, `/docs.json`, and `/api/documentation.json` returned **404**. No global `security` array: Bearer (`apiAuth`, HTTP bearer JWT) applies only where listed. Confirm-twice is **UI-only** (`POST /payment/check`); API invoice is one `POST /invoices`. Assessment sample COD body matches `InvoiceRequest`. **No API tests written.**
+
+### Sources
+
+| Source | Result |
+| --- | --- |
+| `GET https://api.practicesoftwaretesting.com/docs` | OpenAPI JSON (this table) |
+| `GET https://api.practicesoftwaretesting.com/api/documentation` | Swagger UI HTML; not a second schema |
+| `GET .../openapi.json`, `/swagger.json`, `/api-docs` | 404 |
+| Live `GET /products`, `GET /products/search?q=Pliers` | Paginated `{ data: [...] }` — agrees with spec |
+| Live `GET /carts` (no id) | **405** — agrees with spec (collection is POST-only) |
+| Assessment PDF sample invoice body | Same required keys as `InvoiceRequest`; COD + `payment_details: {}` matches `CashOnDeliveryDetails` |
+| Helpers | `PrismStructure/src/api/{auth,cart,product,invoice}ApiPage.js`, `src/data/billing.js`, `src/data/users.js` |
+
+**Base URL:** `https://api.practicesoftwaretesting.com` (spec `servers[0]`). Auth scheme name: `apiAuth` (Bearer JWT). Status codes below are **only** those listed on each operation. Omitted codes are marked **UNCERTAIN** (do not assume).
+
+---
+
+### 1. User registration
+
+| | |
+| --- | --- |
+| Method / path | `POST /users/register` |
+| Auth | **Public** (no `security`) |
+| Required body (`UserRequest`) | `first_name`, `last_name`, `email`, `password` |
+| Optional body (in schema, not required) | `phone`; `dob` (date; description: valid date 18–75 years ago); `address.street`, `address.house_number`, `address.city`, `address.state`, `address.country`, `address.postal_code` |
+| Password rule (schema) | `minLength: 8`; description: uppercase, lowercase, number, and symbol |
+| Success | **201** → `UserResponse` |
+| Documented errors | **400** Bad Request (no body schema); **401** Unauthorized; **403** Forbidden (no body schema); **409** DuplicateConflict (`message` example `"Duplicate Entry"` or field-level MessageBag) |
+| Not documented | **422** **UNCERTAIN** |
+
+Helper `authApi.register(userPayload)` matches this path. `users.js` `apiPayload` also sends optional `dob`, `phone`, and `address.*` — those keys **are** in the schema.
+
+---
+
+### 2. Login
+
+| | |
+| --- | --- |
+| Method / path | `POST /users/login` |
+| Auth | **Public** (no `security`) |
+| Required body (`AccountRequest`) | `email`, `password` (schema `required`; the OpenAPI `requestBody` object itself is **not** marked `required: true`) |
+| Success | **200** → `TokenResponse`: `access_token`, `token_type` (example `"Bearer"`), `expires_in` (example `120`) |
+| Documented errors | **None** |
+| Not documented | **401 / 403 / 409 / 422** all **UNCERTAIN** |
+
+Helper `authApi.login(email, password)` and `accessToken()` reading `body.access_token` match the documented success body. Do not assert 401 on bad credentials from this spec alone.
+
+---
+
+### 3. Product retrieval
+
+| | Method / path | Auth | Required | Success | Documented errors |
+| --- | --- | --- | --- | --- | --- |
+| List | `GET /products` | **Public** | None. Optional query: `by_brand`, `by_category`, `is_rental`, `between`, `sort`, `page` | **200** paginated `{ current_page, data[], from, last_page, per_page, to, total }` items = `ProductResponse` | **404**, **405** |
+| Search | `GET /products/search` | **Public** | Query `q` (required). Optional `page` | **200** same paginated shape; search is on the `name` column | **404**, **405** |
+| By id | `GET /products/{productId}` | **Public** | Path `productId` | **200** `ProductResponse` | **404**, **405** |
+
+`ProductResponse` documents `id`, `name`, `price`, `in_stock`, `is_eco_friendly`, brand/category/image, etc. No Bearer. No **401**. Live list/search responses matched the paginated `data` array (not a raw array).
+
+Helpers: `productApi.list()`, `search(q)`, `getById(id)` match. `findInStock()` is client logic, not an endpoint.
+
+---
+
+### 4. Cart creation
+
+| | |
+| --- | --- |
+| Method / path | `POST /carts` |
+| Auth | **Public** (no `security`) |
+| Body | **None** (no `requestBody`) |
+| Success | **201** `{ id }` (example `"1234"`) |
+| Documented errors | **404**, **405**, **422** |
+| Not documented | **401** **UNCERTAIN** |
+
+Helper `cartApi.create()` matches (POST, no body).
+
+---
+
+### 5. Adding products to cart
+
+| | |
+| --- | --- |
+| Method / path | `POST /carts/{id}` (spec path key; GET uses `{cartId}` — same URL) |
+| Auth | **Public** |
+| Required body | `product_id` (string), `quantity` (integer). **No** `minimum` / `maximum` in schema |
+| Success | **200** `{ result }` example `"item added or updated"` |
+| Documented errors | **404**, **405**, **422** |
+| Not documented | **401** **UNCERTAIN**; qty min 1 / max 99 **UNCERTAIN** (not in this schema) |
+
+Helper `cartApi.addItem(cartId, productId, quantity = 1)` sends both required fields. The default `1` is a **client** default; the API schema does not default `quantity`.
+
+---
+
+### 6. Cart verification
+
+| | |
+| --- | --- |
+| Method / path | `GET /carts/{cartId}` |
+| Auth | **Public** |
+| Body | None |
+| Success | **200** `CartResponse` |
+| `CartResponse` properties in spec | **`id` only** |
+| Documented errors | **404**, **405** |
+| Not documented | Line items, `product_id`, `quantity`, totals — **not in schema** (**UNCERTAIN**). **401** **UNCERTAIN** |
+
+`CartItemResponse` is also only `{ id }` and is mis-titled `"CartResponse"` in the spec. Official docs do **not** give a field list for verifying products/qty on GET cart. Do not invent `cart_items` (or similar) until a later live probe is recorded as live-vs-docs, not as contract.
+
+Helper `cartApi.get(cartId)` matches the path. Extra helpers (not in the seven flows, but in the spec):
+
+| Helper | Spec | Auth | Success | Documented errors |
+| --- | --- | --- | --- | --- |
+| `updateQuantity` `PUT /carts/{cartId}/product/quantity` | required `product_id`, `quantity` | Public | **200** `{ success }` | **404**, **405**, **422** |
+| `delete` `DELETE /carts/{cartId}` | no body | **No `security` block**, yet **401** is listed | **204** | **401**, **404**, **409**, **405**, **422** |
+
+---
+
+### 7. Invoice generation
+
+| | |
+| --- | --- |
+| Method / path | `POST /invoices` |
+| Auth | **Bearer** (`security: apiAuth`) |
+| Required body (`InvoiceRequest`) | `billing_street`, `billing_city`, `billing_state`, `billing_country`, `billing_postal_code`, `payment_method`, `payment_details`, `cart_id` |
+| `payment_method` enum | `bank-transfer`, `cash-on-delivery`, `credit-card`, `buy-now-pay-later`, `gift-card` |
+| COD `payment_details` | `oneOf` includes `CashOnDeliveryDetails`: **empty object** (`type: object`, no properties). Assessment `{}` is schema-valid. |
+| Success | **200** → `InvoiceResponse` (**not 201**) |
+| Documented errors | **401**, **404**, **405**, **422** |
+| Not documented | **403**, **409** **UNCERTAIN** |
+| Confirm twice | **Not this endpoint.** UI first Confirm → `POST /payment/check` (public; only **200** documented). API tests use a single POST. |
+
+**Assessment sample vs schema:** the PDF body (`billing_*`, `payment_method: "cash-on-delivery"`, `cart_id`, `payment_details: {}`) uses exactly the `InvoiceRequest` required set. Sample `billing_country: "TG"` vs helper `Netherlands` vs UI `NL` — schema type is **string with no format/enum**; country/postcode pairing is **UNCERTAIN**.
+
+**`InvoiceResponse` (documented):** `id`, `user_id`, `invoice_date`, `invoice_number`, billing fields, discounts, `subtotal`, `total`, `status`, `status_message`, `invoicelines[]` (`quantity`, `product_id`, `unit_price`, nested `product`), `created_at`. **`payment_method` is not a documented response property.**
+
+Related (verification, Bearer):
+
+| Method / path | Success | Documented errors |
+| --- | --- | --- |
+| `GET /invoices` (optional `page`) | **200** paginated `InvoiceResponse` list | **401**, **404**, **405** |
+| `GET /invoices/{invoiceId}` | **200** `InvoiceResponse` | **401**, **404**, **405** |
+| `POST /invoices/guest` | **200** (public; extra `guest_email`, `guest_first_name`, `guest_last_name`) | **422** only — **not** API-AC (registered + Bearer) |
+
+Helper `invoiceApi.create(payload, token)` matches path + Bearer. `billing.invoicePayload(cartId)` matches required keys and COD `{}`.
+
+---
+
+### Auth map (seven flows)
+
+| Endpoint | Bearer? |
+| --- | --- |
+| `POST /users/register` | No |
+| `POST /users/login` | No |
+| `GET /products`, `/products/search`, `/products/{id}` | No |
+| `POST /carts`, `POST /carts/{id}`, `GET /carts/{cartId}` | No |
+| `POST /invoices`, `GET /invoices`, `GET /invoices/{invoiceId}` | **Yes** |
+| `GET /users/me` (helper extra) | **Yes** |
+| `POST /payment/check` (UI Confirm 1) | No (and **not** invoice create) |
+
+---
+
+### Helpers vs docs (fields/endpoints not in the spec)
+
+In the spec (OK to keep using): register/login paths; optional register address/phone/dob; `access_token`; product list/search/`q`/by-id; cart create/add/get; invoice required keys + COD `{}`; Bearer on invoices; `GET /users/me`; PUT qty; DELETE cart.
+
+**Not in the spec (do not treat as contract):**
+
+1. **`CartResponse` line items** — GET cart documents only `id`. Any assert on products/qty from GET cart is undocumented.
+2. **`productApi.findInStock` raw-array fallback** (`Array.isArray(body)`) — list and search are documented as paginated `{ data: [] }`. Live GETs this session returned `data`, not a raw array.
+3. **Invoice success 201** — earlier design notes said 201; OpenAPI says **200**.
+4. **Login 401** — earlier design assumed 401; OpenAPI lists **no** error codes.
+5. **Register 422** — OpenAPI omits it; earlier live UI seed saw 422 for HIBP-blocked passwords (not re-probed this session).
+6. **`InvoiceResponse.payment_method`** — required on create; **absent** from response schema. Do not assert COD on GET invoice from this spec alone.
+7. **Qty min 1 / max 99 on API add-item** — not in OpenAPI (UI clamp is a different contract).
+8. **`billing_country` format** (name vs ISO) — not specified.
+
+### Validation Notes
+
+- Did **not** write API/Playwright tests.
+- Did **not** invent cart line-item field names.
+- Swagger UI and OpenAPI JSON are the same spec (`/docs`); they did not disagree. Disagreements are: incomplete schemas vs earlier planning notes vs prior live UI debugging.
+- `UnprocessableEntityResponse` has a description only (no JSON schema) — 422 **body** is **UNCERTAIN**.
+
+---
+
+## Entry 9 — Prompt 12: API lifecycle tests (implemented set)
+
+**Date:** 2026-08-26
+
+### Prompt
+
+Implement Playwright API tests for the Toolshop lifecycle: register unique user → login token → products → create cart → add products → verify cart → COD invoice → validate invoice. Reusable helpers, dynamic IDs, isolated data, explicit status/schema/value asserts. No hardcoded tokens/credentials/IDs. `@smoke` / `@regression`. Honor Prompt 11 OpenAPI facts. Stay in 5–8 API tests (target 2–4). Replace API wiring.
+
+### AI Response Summary
+
+Implemented **3 Playwright API tests** (inside 5–8). Wiring spec removed. API-01..04 are **one** lifecycle test (same combine pattern as UI-01+02). API-07 and API-05 are separate `@regression` tests. API-06 not coded (login errors undocumented).
+
+| Playwright test | Tag in title | Design ID | Type |
+| --- | --- | --- | --- |
+| unique customer can register, login, cart products, and create a COD invoice | `@smoke @regression` | **API-01..04** combined | Positive lifecycle |
+| POST /invoices without a bearer token is rejected | `@regression` | **API-07** | Negative |
+| register with a duplicate email returns 409 | `@regression` | **API-05** | Negative |
+
+**Count:** **3 / 8** Playwright API tests at Prompt 12. Prompt 13 raised the suite to **7 / 8**. Confirm-twice is still UI-only (one `POST /invoices`).
+
+### Live vs OpenAPI (assertions)
+
+- **GET cart:** schema is only `id`. Live body also has `cart_items` (product_id, quantity, cart_id). Tests assert documented `id` + add-item **200** `{ result }`, and treat `cart_items` as extra-schema live checks when present.
+- **POST /invoices:** OpenAPI success is **200**. Live Toolshop v5 returns **201** with `id`, `invoice_number`, `user_id`, billing_* (no `payment_method`, no `invoicelines` on the create body). Tests assert live **201** and documented fields that exist on that body.
+- **Billing:** `Netherlands` + `Utrecht` + `1234AA` 422s (“city does not belong”). COD payload uses **NL** + postcode-lookup street/city/state (`de Bruijnsingel` / `Idaerd` / `Limburg`) via `billing.invoicePayload` (`billing_country` = `countryCode`).
+- **Products:** `findInStock` / lifecycle reads `body.data`, not a raw array.
+
+---
+
+## Entry 10 — Prompt 13: Negative API tests (implemented set)
+
+**Date:** 2026-08-26
+
+### Prompt
+
+Add high-value negative API tests while keeping the complete API suite between 5 and 8 tests. Consider invalid login, missing/invalid bearer, invalid product or cart ID, invalid invoice payload, missing required fields. Assert status and relevant error body. Do not assume status codes without checking live API or docs. Keep the existing 3 tests. Target 6 or 7 total (3 existing + 3–4 new). Max 8. Do not duplicate the 401-without-token test.
+
+### AI Response Summary
+
+Implemented **4** new `@regression` tests. API automated count is **7 / 8**. Existing lifecycle / missing-token 401 / duplicate 409 kept. Helpers already return raw `APIResponse`; no new methods.
+
+| Playwright test | Tag in title | Design ID | Type |
+| --- | --- | --- | --- |
+| unique customer can register, login, cart products, and create a COD invoice | `@smoke @regression` | **API-01..04** combined | Positive lifecycle |
+| POST /invoices without a bearer token is rejected | `@regression` | **API-07** | Negative (missing token) |
+| register with a duplicate email returns 409 | `@regression` | **API-05** | Negative |
+| login with a wrong password is rejected | `@regression` | **API-06** | Negative |
+| POST /invoices with a malformed bearer token is rejected | `@regression` | (auth gate; not API-07) | Negative (invalid token) |
+| POST /invoices with a token but no cart_id is rejected | `@regression` | CHK-08 | Negative |
+| GET /carts/{cartId} with an unknown id returns 404 | `@regression` | (cart 404) | Negative |
+
+**Count:** **7 / 8** Playwright API tests. One spare slot left.
+
+**Added:** API-06 bad login; malformed `Authorization: Bearer not-a-jwt`; GET cart bogus id; invoice missing `cart_id`.
+
+**Skipped:** GET product 404 (same documented 404 shape as cart; cart is higher value for the lifecycle); optional `POST /carts/{id}` with invalid `product_id` (live **422**, would make 8); register missing fields (live **422**, documented **400** — duplicate 409 already covers register negatives).
+
+### Live vs OpenAPI (negatives)
+
+| Case | OpenAPI | Live status | Live body keys (asserted) |
+| --- | --- | --- | --- |
+| `POST /users/login` wrong password | **no error codes** | **401** | `{ error: "Unauthorized" }` — no `access_token` |
+| `POST /invoices` missing bearer | **401** | **401** (existing test) | (status only, unchanged) |
+| `POST /invoices` `Bearer not-a-jwt` | **401** | **401** | `{ message: "Unauthorized" }` |
+| `GET /carts/{cartId}` unknown id | **404**, **405** | **404** | `{ message: "Requested item not found" }` |
+| `GET /products/{id}` unknown id (probed, not tested) | **404**, **405** | **404** | `{ message: "Requested item not found" }` |
+| `POST /invoices` token, no `cart_id` | **422** (body schema **UNCERTAIN**) | **422** | `{ cart_id: ["The cart id field is required."] }` |
+| `POST /invoices` token, fake `cart_id` (probed, not tested) | **404** | **404** | `{ message: "Requested item not found" }` |
+| `POST /carts/{id}` invalid `product_id` (probed, not tested) | **404**, **422** | **422** | `{ message, errors.product_id }` |
+| `POST /users/register` missing fields (probed, not tested) | **400** | **422** | field arrays (`first_name`, `last_name`, `password`, …) |

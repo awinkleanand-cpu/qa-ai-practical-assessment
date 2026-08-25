@@ -48,4 +48,23 @@ test.describe('Registration and login', () => {
     await expect(homePage.userMenu).toBeHidden();
     await expect(homePage.signInLink).toBeVisible();
   });
+
+  test('@regression register with an email already in use is rejected', async ({
+    page,
+    authApi,
+    registerPage,
+  }) => {
+    const customer = users.createUniqueCustomer();
+    const registerResponse = await authApi.register(customer.apiPayload);
+    expect(registerResponse.status()).toBe(201);
+
+    await registerPage.open();
+    const duplicateResponse = await registerPage.register(customer);
+    expect(duplicateResponse.ok()).toBeFalsy();
+
+    await expect(registerPage.errorAlert).toBeVisible();
+    await expect(registerPage.errorAlert).toContainText(messages.EMAIL_IN_USE);
+    await expect(page).toHaveURL(/\/auth\/register/);
+    await expect(registerPage.firstName).toBeVisible();
+  });
 });

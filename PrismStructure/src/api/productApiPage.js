@@ -18,17 +18,24 @@ class ProductApiPage {
     return this.request.get(`${this.baseUrl}/products/${id}`);
   }
 
+  /** List and search are paginated `{ data: ProductResponse[] }`, not a raw array. */
+  paginatedData(body) {
+    return Array.isArray(body && body.data) ? body.data : [];
+  }
+
+  inStockFromPage(body) {
+    return this.paginatedData(body).filter((product) => product.in_stock !== false);
+  }
+
   async findInStock(query, preferredName) {
     const response = await this.search(query);
     const body = await response.json();
-    const items = Array.isArray(body) ? body : body.data || [];
-    const preferred = items.find(
-      (product) => product.name === preferredName && product.in_stock !== false
-    );
+    const items = this.inStockFromPage(body);
+    const preferred = items.find((product) => product.name === preferredName);
     if (preferred) {
       return preferred;
     }
-    return items.find((product) => product.in_stock !== false) || items[0];
+    return items[0];
   }
 }
 

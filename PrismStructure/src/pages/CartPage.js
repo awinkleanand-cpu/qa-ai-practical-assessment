@@ -1,9 +1,12 @@
+const { messages } = require('../data');
+
 class CartPage {
   constructor(page) {
     this.page = page;
     this.proceedToCheckout = page.getByTestId('proceed-1');
     this.continueShopping = page.getByTestId('continue-shopping');
-    this.emptyMessage = page.getByText('The cart is empty. Nothing to display.');
+    this.emptyMessage = page.getByText(messages.EMPTY_CART);
+    this.qtyMaxWarning = page.getByText(messages.QTY_MAX_WARNING);
     this.qtyInputs = page.getByTestId('product-quantity');
     this.productTitles = page.getByTestId('product-title');
     this.cartTotal = page.getByTestId('cart-total');
@@ -14,8 +17,23 @@ class CartPage {
     await this.productTitles.first().waitFor({ state: 'visible' });
   }
 
+  async openWhenEmpty() {
+    await this.page.goto('/checkout', { waitUntil: 'domcontentloaded' });
+    await this.emptyMessage.waitFor({ state: 'visible' });
+  }
+
   async clearSessionCart() {
-    await this.page.evaluate(() => sessionStorage.removeItem('cart_id'));
+    await this.page.evaluate(() => {
+      sessionStorage.removeItem('cart_id');
+      sessionStorage.removeItem('cart_quantity');
+    });
+  }
+
+  async bindCartId(cartId) {
+    await this.page.evaluate((id) => {
+      sessionStorage.setItem('cart_id', id);
+      sessionStorage.setItem('cart_quantity', '0');
+    }, cartId);
   }
 
   qtyInput(index = 0) {

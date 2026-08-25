@@ -50,4 +50,6 @@ Quote the tag if you call grep from PowerShell: `npx playwright test --grep "@sm
 
 Tags are lowercase `@smoke` / `@regression` in the test title. Reports: `PrismStructure/playwright-report/` (HTML) and `PrismStructure/test-results/` (artifacts). Those folders are gitignored until the business suite is green.
 
-UI tests: `tests/ui/auth.spec.js` (register+login+profile `@smoke`; invalid login `@regression`) and `tests/ui/purchase.spec.js` (COD E2E tagged **both** `@smoke` and `@regression`). Remaining UI-04/06/07 and API-01..07 are later prompts.
+UI tests (**6 / 8**, inside the 5–8 cap): `tests/ui/auth.spec.js` (register+login+profile `@smoke`; invalid login `@regression`; duplicate email `@regression`), `tests/ui/cart.spec.js` (qty clamp `@regression`; empty cart `@regression`), and `tests/ui/purchase.spec.js` (COD E2E tagged **both** `@smoke` and `@regression`).
+
+API tests (**7 / 8**, inside the 5–8 cap): `tests/api/lifecycle.spec.js` (`@smoke @regression` register → token → products → cart → COD invoice); `tests/api/auth.spec.js` (`@regression` invoice without bearer → 401; duplicate register → 409; wrong-password login → 401; malformed bearer → 401; invoice missing `cart_id` → 422); `tests/api/cart.spec.js` (`@regression` GET unknown cart → 404).

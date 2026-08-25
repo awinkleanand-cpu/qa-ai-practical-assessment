@@ -54,3 +54,29 @@ Shared placeholders for the manual suite in `FunctionalTestCase/functional-test-
 - Fresh cart / browser session if a leftover badge is visible (`cart_id` is sessionStorage).
 - Registered user for COD + My invoices — never Continue as Guest for TC-M-06/07/08.
 - Wait after the first Confirm before the second (TC-M-06). TC-M-08 clicks Confirm **once** and waits ≥5 seconds without a second click.
+
+---
+
+## Entry 2 — Prompt 11: API payloads vs official schema
+
+**Date:** 2026-08-26
+
+### Prompt
+
+(Same session as test-design Prompt 11.) Confirm assessment invoice sample and existing `billing.js` / `users.js` payloads against live OpenAPI. Full endpoint/status table lives in `ai-prompts/test-design.md` Entry 8.
+
+### AI Response Summary
+
+Existing automation payloads do **not** invent request fields. Gaps are response/status, not extra body keys. Full contract: `ai-prompts/test-design.md` Entry 8.
+
+### API payload checklist (schema-backed)
+
+| Payload | Location | Schema required | Notes |
+| --- | --- | --- | --- |
+| Register | `users.js` `apiPayload` | `first_name`, `last_name`, `email`, `password` | Also sends optional `dob`, `phone`, `address.*` — all in `UserRequest`. Password must meet min 8 + mixed/number/symbol; `Welcome1!` was HIBP-blocked on live register (use `uniquePassword()`). |
+| Login | `authApiPage.js` | `email`, `password` | Success body field: `access_token`. |
+| Add to cart | `cartApiPage.js` | `product_id`, `quantity` | Integer; no min/max in schema. |
+| Invoice COD | `billing.js` `invoicePayload` | `billing_street`, `billing_city`, `billing_state`, `billing_country`, `billing_postal_code`, `payment_method`, `payment_details`, `cart_id` | `payment_method: cash-on-delivery`; `payment_details: {}` = documented empty `CashOnDeliveryDetails`. Matches assessment sample keys. |
+| Assessment sample | PDF | Same required set | Sample `billing_country: "TG"`; helper uses `"Netherlands"`; UI checkout used `NL`. Schema is unconstrained string — format **UNCERTAIN**. |
+
+Do not add undocumented invoice keys. Do not model Confirm-twice in the API payload. Do not assert GET-cart line-item property names from the spec (`CartResponse` documents `id` only).
