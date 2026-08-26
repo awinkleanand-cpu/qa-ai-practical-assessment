@@ -5,7 +5,7 @@ Playwright (Prism) UI and API tests for [Practice Software Testing Toolshop](htt
 | Type | Count | Location | Cap (5–8) |
 | --- | --- | --- | --- |
 | Manual | **8** | [`FunctionalTestCase/functional-test-cases.csv`](FunctionalTestCase/functional-test-cases.csv) (`TC-M-01` … `TC-M-08`) | Yes |
-| UI automation | **6** | [`PrismStructure/tests/ui/`](PrismStructure/tests/ui/) | Yes |
+| UI automation | **7** | [`PrismStructure/tests/ui/`](PrismStructure/tests/ui/) | Yes |
 | API automation | **7** | [`PrismStructure/tests/api/`](PrismStructure/tests/api/) | Yes |
 
 `@smoke` and `@regression` are tags on those same tests, not extra cases. Confirm twice is **UI-only**. The API creates an invoice with **one** `POST /invoices`.
@@ -65,11 +65,11 @@ Run these from `PrismStructure/`. Only scripts that exist in [`PrismStructure/pa
 
 | Command | Script | What it runs |
 | --- | --- | --- |
-| `npm test` | `npx playwright test` | Full suite (6 UI + 7 API = 13 tests) |
+| `npm test` | `npx playwright test` | Full suite (7 UI + 7 API = 14 tests) |
 | `npm run test:ui` | `npx playwright test --project=ui` | Browser UI project only (`tests/ui/`) |
 | `npm run test:api` | `npx playwright test --project=api` | API request project only (`tests/api/`) |
 | `npm run test:smoke` | `npx playwright test --grep "@smoke"` | Tests whose title contains `@smoke` (currently 3) |
-| `npm run test:regression` | `npx playwright test --grep "@regression" --pass-with-no-tests` | Tests whose title contains `@regression` (currently 12; purchase and API lifecycle are dual-tagged) |
+| `npm run test:regression` | `npx playwright test --grep "@regression" --pass-with-no-tests` | Tests whose title contains `@regression` (currently 13; purchase and API lifecycle are dual-tagged) |
 | `npm run report` | `npx playwright show-report playwright-report` | Open the last HTML report |
 
 Playwright projects, reporter, and workers come from [`PrismStructure/playwright.config.js`](PrismStructure/playwright.config.js):
@@ -91,9 +91,11 @@ npx playwright test --grep "@regression"
 
 ## Reports
 
-HTML output is written to **`PrismStructure/playwright-report/`** (`index.html`). Failure traces/screenshots go to **`PrismStructure/test-results/`**. Both folders are **gitignored**.
+Committed execution evidence lives in **[`PrismStructure/execution-reports/`](PrismStructure/execution-reports/)** (dated HTML snapshot plus [`execution-summary.md`](PrismStructure/execution-reports/execution-summary.md)). That folder is **not** gitignored.
 
-Generate and open a report:
+Local HTML output is regenerated into **`PrismStructure/playwright-report/`** (`index.html`). Failure traces/screenshots go to **`PrismStructure/test-results/`**. Those two live folders stay **gitignored**.
+
+Generate and open a local report:
 
 ```powershell
 cd PrismStructure
@@ -101,7 +103,7 @@ npm test
 npm run report
 ```
 
-If the report server is not needed, open `PrismStructure\playwright-report\index.html` in a browser after a run. `open: 'never'` means Playwright will not auto-launch the report when tests finish.
+If the report server is not needed, open `PrismStructure\playwright-report\index.html` after a run, or the committed copy at `PrismStructure\execution-reports\playwright-html\index.html`. `open: 'never'` means Playwright will not auto-launch the report when tests finish.
 
 ## Repository structure
 
@@ -113,6 +115,7 @@ qa-ai-practical-assessment/
 │   ├── .env.example
 │   ├── package.json
 │   ├── playwright.config.js
+│   ├── execution-reports/  committed HTML snapshot + execution-summary.md
 │   ├── src/
 │   │   ├── pages/          UI page objects (*Page)
 │   │   ├── api/            API helpers (*ApiPage)
@@ -128,13 +131,13 @@ qa-ai-practical-assessment/
 └── README.md
 ```
 
-Generated (gitignored): `PrismStructure/node_modules/`, `PrismStructure/.env`, `PrismStructure/playwright-report/`, `PrismStructure/test-results/`.
+Generated (gitignored): `PrismStructure/node_modules/`, `PrismStructure/.env`, `PrismStructure/playwright-report/`, `PrismStructure/test-results/`. Committed snapshot: `PrismStructure/execution-reports/`.
 
 ## Known application behavior
 
 These are live Toolshop behaviors the suite accounts for; they are not test bugs.
 
-**Invoice Confirm twice (UI).** The first Confirm only runs `POST /payment/check`. The invoice is created on the **second** Confirm (`POST /invoices`). `CheckoutPage.confirmTwice` waits for the check response **and** `data-test="payment-success-message"`, then clicks Confirm again. A fast double-click can fire two checks and create nothing. Manual TC-M-08 covers confirm-once (no invoice).
+**Invoice Confirm twice (UI).** The first Confirm only runs `POST /payment/check`. The invoice is created on the **second** Confirm (`POST /invoices`). `CheckoutPage.confirmTwice` waits for the check response **and** `data-test="payment-success-message"`, then clicks Confirm again. A fast double-click can fire two checks and create nothing. Confirm-once (no invoice) is UI `@regression` plus manual TC-M-08 (`CheckoutPage.confirmOnce`).
 
 **Invoice API.** One `POST /invoices` with billing + `payment_method: cash-on-delivery` + `cart_id` + `payment_details: {}`. There is no Confirm-twice API test.
 
@@ -157,7 +160,7 @@ These are live Toolshop behaviors the suite accounts for; they are not test bugs
 | Duplicate-email / 409 on register | Use a new unique email every run (`createUniqueCustomer()`). Do not hardcode an address. |
 | Unexpected cart lines or empty-cart test sees items | Clear leftover `cart_id` / `cart_quantity` in sessionStorage, or use a fresh browser context. `CartPage.clearSessionCart()` / `bindCartId()` already do this in UI tests. |
 | PowerShell: `--grep @smoke` does nothing or errors | Quote the tag: `npx playwright test --grep "@smoke"`. Prefer `npm run test:smoke`. |
-| Missing HTML report | Run tests first (`npm test` or another script above), then `npm run report`, or open `playwright-report\index.html`. The folder is gitignored and is created on a run. |
+| Missing HTML report | Run tests first (`npm test` or another script above), then `npm run report`, or open `playwright-report\index.html`. That live folder is gitignored. Committed evidence is `PrismStructure/execution-reports/`. |
 | Invoice POST 422 (city / country) | Billing country must be **NL** with postcode-lookup city/state, not Austria + Florida faker data. |
 | Combination Pliers click / OOS | Open the product by exact in-stock heading, not a Pliers substring. |
 
@@ -168,10 +171,10 @@ Human-executable cases (8 / 8) are in [`FunctionalTestCase/functional-test-cases
 - Columns: `TestCaseID`, `RequirementID`, `Title`, `TestType`, `Tag`, `Priority`, `Preconditions`, `Steps`, `TestData`, `ExpectedResult`, `ActualResult`, `Status`
 - IDs: `TC-M-01` … `TC-M-08` mapped to UI-AC1 / UI-AC2
 - Tags: **Smoke** or **Regression** only
-- `ActualResult` and `Status` are blank until a tester executes the suite
+- `ActualResult` and `Status` are filled **Passed** from the 2026-08-26 green run (`npx playwright test`, 14 passed), mapped to the UI specs listed in [`PrismStructure/execution-reports/execution-summary.md`](PrismStructure/execution-reports/execution-summary.md)
 
 ## Playwright tests (what exists)
 
-UI (**6**): `tests/ui/auth.spec.js` (register+login+profile `@smoke`; invalid login `@regression`; duplicate email `@regression`), `tests/ui/cart.spec.js` (qty clamp `@regression`; empty cart `@regression`), `tests/ui/purchase.spec.js` (COD E2E `@smoke` `@regression`).
+UI (**7**): `tests/ui/auth.spec.js` (register+login+profile `@smoke`; invalid login `@regression`; duplicate email `@regression`), `tests/ui/cart.spec.js` (qty clamp `@regression`; empty cart `@regression`), `tests/ui/purchase.spec.js` (COD E2E `@smoke` `@regression`; confirm-once `@regression`).
 
 API (**7**): `tests/api/lifecycle.spec.js` (`@smoke` `@regression` register → token → products → cart → COD invoice); `tests/api/auth.spec.js` (`@regression` invoice without bearer → 401; duplicate register → 409; wrong-password login → 401; malformed bearer → 401; invoice missing `cart_id` → 422); `tests/api/cart.spec.js` (`@regression` GET unknown cart → 404).

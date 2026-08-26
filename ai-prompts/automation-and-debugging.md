@@ -193,3 +193,27 @@ Exact heading locators for in-stock products (see test-data Entry 3). Did not ad
 ### Reason for Changes
 
 OOS Combination Pliers is product data; clicking it via substring is a test defect. Environment 500/ETIMEDOUT must not be hidden.
+
+---
+
+## Entry 9
+
+### Prompt
+
+(QA engineer — close Prompt 20 gaps.) Add a focused UI `@regression` for TC-M-08: COD checkout, Confirm once, assert no new invoice. Do not duplicate the full E2E. Run the full suite until green. Do not add config retries, `waitForTimeout`, force, or weaker asserts. Copy the HTML report into committed `PrismStructure/execution-reports/`.
+
+### AI Response Summary
+
+Cursor added `CheckoutPage.confirmOnce` (one click, wait for `POST /payment/check` and `payment-success-message`, assert `#order-confirmation` hidden, return whether `POST /invoices` fired). New test registers via API, logs in, records My invoices count, adds one in-stock product, COD, confirm once, then asserts invoice count unchanged. `npx playwright test` on 2026-08-26: **14 passed in 1.1m** (7 UI + 7 API). HTML copied to `execution-reports/playwright-html/`. No failure screenshots.
+
+### Validation Notes
+
+Confirm-once passed in 17.0s on the same green run as the Confirm-twice E2E (25.8s). Local retries stayed 0. UI list 7 / API list 7.
+
+### Changes I Made
+
+`purchase.spec.js` confirm-once test; `CheckoutPage.confirmOnce`. Did not change `playwright.config.js` retries or screenshot mode.
+
+### Reason for Changes
+
+TC-M-08 was the only manual case without an automated mapping. The PDF wants Status=Passed with evidence; faking Passed without a run was not allowed.

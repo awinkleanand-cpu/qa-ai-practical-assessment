@@ -9,3 +9,7 @@ test-results/
 .DS_Store
 Thumbs.db
 *.tmp
+
+# Dated HTML snapshot is committed; live generated folders stay ignored above.
+!PrismStructure/execution-reports/
+!PrismStructure/execution-reports/**

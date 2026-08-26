@@ -104,4 +104,60 @@ test.describe('Purchase flow', () => {
     await expect(hammerLine).toBeVisible();
     await expect(hammerLine.getByRole('cell').first()).toHaveText('1');
   });
+
+  test('@regression a single Confirm on COD checkout does not create an invoice', async ({
+    page,
+    authApi,
+    productApi,
+    loginPage,
+    homePage,
+    productPage,
+    cartPage,
+    checkoutPage,
+    invoicesPage,
+  }) => {
+    test.setTimeout(60_000);
+
+    const customer = users.createUniqueCustomer();
+    const registerResponse = await authApi.register(customer.apiPayload);
+    expect(registerResponse.status()).toBe(201);
+
+    const pliers = await catalogProduct(productApi, products.SEARCH.pliers);
+    expect(pliers.name).toBeTruthy();
+
+    await loginPage.open();
+    await loginPage.login(customer.email, customer.password);
+    await expect(page).toHaveURL(/\/account/);
+    await expect(homePage.userMenu).toBeVisible();
+    await cartPage.clearSessionCart();
+
+    await invoicesPage.openFromMenu();
+    const invoiceCountBefore = await invoicesPage.detailsLinks.count();
+
+    await homePage.open();
+    await homePage.search(pliers.query);
+    await homePage.openProduct(pliers.name);
+    await productPage.waitForName(pliers.name);
+    await productPage.addToCart();
+
+    await cartPage.open();
+    await expect(cartPage.productTitle(pliers.name)).toBeVisible();
+    await cartPage.proceed();
+    await checkoutPage.proceedFromSignIn();
+    await checkoutPage.fillBilling(billing.billingAddress);
+    await expect(checkoutPage.proceedBilling).toBeEnabled();
+    await checkoutPage.proceedFromBilling();
+
+    await checkoutPage.chooseCashOnDelivery();
+    await expect(checkoutPage.paymentMethod).toHaveValue(billing.COD);
+
+    const invoicePosted = await checkoutPage.confirmOnce();
+    expect(invoicePosted).toBe(false);
+    await expect(checkoutPage.orderConfirmation).toBeHidden();
+    await expect(checkoutPage.confirmButton).toBeVisible();
+    await expect(page).not.toHaveURL(/\/account\/invoices/);
+
+    await invoicesPage.openFromMenu();
+    await expect(invoicesPage.detailsLinks).toHaveCount(invoiceCountBefore);
+  });
 });

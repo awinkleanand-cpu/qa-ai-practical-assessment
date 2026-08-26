@@ -97,3 +97,51 @@ Replaced contents of the five `ai-prompts/` markdown files listed above. No git 
 ### Reason for Changes
 
 Prompt 19 requires this format. Older files mixed long extractions, duplicate prompt copies, and missing Prompt 6 / git / Prompt 19 entries.
+
+---
+
+## Entry 5
+
+### Prompt
+
+(QA engineer — Prompt 20.) Final audit. Audit the repository against the QA assessment. Check: required folder structure and files; 5–8 manual, UI, and API tests; Smoke and Regression tags; requirement traceability; positive, negative, and edge coverage; passing execution evidence; README command accuracy; complete AI prompt history; no secrets or generated clutter committed; meaningful iterative Git history. Return a checklist with Pass, Fail, or Needs Evidence. Do not modify files.
+
+### AI Response Summary
+
+Cursor ran a read-only audit (no file writes). Structure, 5–8 counts (manual 8 / UI 6 / API 7 at that commit), Smoke/Regression tags, README scripts, five `ai-prompts` files, and iterative git **Passed**. Passing execution evidence was **Needs Evidence**: `playwright-report/` and `test-results/` were gitignored, CSV `ActualResult`/`Status` were blank, and Prompt 18–19 docs were not on GitHub yet at the first audit snapshot (`4d0633d`). A later GitHub-vs-PDF check at `ac00020` repeated the same evidence gaps on origin/main.
+
+### Validation Notes
+
+Read-only. Playwright suite was not re-run for Prompt 20. Public repo https://github.com/awinkleanand-cpu/qa-ai-practical-assessment. `.cursor` rules/skills rated optional/absent.
+
+### Changes I Made
+
+None on Prompt 20 (audit-only).
+
+### Reason for Changes
+
+Prompt 20 forbade modifications.
+
+---
+
+## Entry 6
+
+### Prompt
+
+(QA engineer.) Complete the Toolshop QA assessment to 100% against the PDF. Close GitHub-vs-PDF gaps: commit dated execution reports under `PrismStructure/execution-reports/` while keeping live `playwright-report/` and `test-results/` gitignored; fill CSV `ActualResult`/`Status`; add Prompt 20 plus this completion to prompt history; skip optional `.cursor` rules. Automate TC-M-08 confirm-once as one focused UI `@regression` (UI becomes 7, still ≤8). Run `npx playwright test` until green; do not add config retries, `waitForTimeout`, force clicks, or weaker asserts. Push to `origin/main`. Do not add Selenium, exceed 8 UI/API tests, or commit `.env` / `node_modules` / secrets.
+
+### AI Response Summary
+
+Cursor added `CheckoutPage.confirmOnce` and `tests/ui/purchase.spec.js` confirm-once `@regression`. Listed 7 UI + 7 API. First `npx playwright test` from `PrismStructure/` on 2026-08-26: **14 passed (1.1m)**. Copied HTML to `PrismStructure/execution-reports/playwright-html/`; wrote `execution-summary.md`. Filled CSV Status=Passed with date + mapped spec titles. Updated README / Prism README / `project-info.md` / `.gitignore` un-ignore for `execution-reports/`. No screenshots (Playwright `only-on-failure`; run had none). No `.cursor` rules added.
+
+### Validation Notes
+
+`npx playwright test tests/ui --list` → 7; `tests/api --list` → 7. Full suite 14 passed on the first try (no SUT 500/ETIMEDOUT this run). Mapped TC-M-01..07 to existing passing UI tests; TC-M-08 to the new confirm-once test. Did not fake Passed without a mapping.
+
+### Changes I Made
+
+Confirm-once UI test and page method; `execution-reports/`; CSV Status/ActualResult; README report path; prompt-history entries; `.gitignore` exception. Commit and push requested in this prompt.
+
+### Reason for Changes
+
+PDF requires committed execution reports in PrismStructure and all case statuses Passed. Live generated folders stay gitignored so later runs do not dump secrets. TC-M-08 had no automated mapping, so it was automated instead of marked Passed by hand.

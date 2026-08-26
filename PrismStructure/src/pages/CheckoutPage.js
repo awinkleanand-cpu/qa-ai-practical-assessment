@@ -131,6 +131,37 @@ class CheckoutPage {
     await this.orderConfirmation.waitFor({ state: 'visible' });
     return invoiceResponse.json();
   }
+
+  /**
+   * First Confirm only runs POST /payment/check. Do not click Confirm again.
+   * Returns whether POST /invoices fired (must stay false for TC-M-08).
+   */
+  async confirmOnce() {
+    await this.confirmButton.waitFor({ state: 'visible' });
+
+    let invoicePosted = false;
+    const onResponse = (res) => {
+      if (res.url().includes('/invoices') && res.request().method() === 'POST') {
+        invoicePosted = true;
+      }
+    };
+    this.page.on('response', onResponse);
+
+    const paymentCheck = this.page.waitForResponse(
+      (res) =>
+        res.url().includes('/payment/check') &&
+        res.request().method() === 'POST' &&
+        res.ok()
+    );
+    await this.confirmButton.click();
+    await paymentCheck;
+    await this.paymentSuccessMessage.waitFor({ state: 'visible' });
+    await this.confirmButton.waitFor({ state: 'visible' });
+    await expect(this.orderConfirmation).toBeHidden();
+
+    this.page.off('response', onResponse);
+    return invoicePosted;
+  }
 }
 
 module.exports = { CheckoutPage };

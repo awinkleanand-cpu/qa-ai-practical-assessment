@@ -12,7 +12,7 @@ Public git: https://github.com/awinkleanand-cpu/qa-ai-practical-assessment
 
 ## Project Summary
 
-I used Cursor to plan, design, automate, and debug a bounded QA suite for Practice Software Testing Toolshop (new-customer checkout and invoice verification). The repository has **8** manual cases, **6** Playwright UI tests, and **7** Playwright API tests — each type inside the 5–8 cap, with `@smoke` and `@regression` counted inside that cap. Confirm twice is UI-only; the API creates an invoice with one `POST /invoices`. HTML reports are generated locally under `PrismStructure/playwright-report/` and are gitignored; they are not committed as Passed evidence.
+I used Cursor to plan, design, automate, and debug a bounded QA suite for Practice Software Testing Toolshop (new-customer checkout and invoice verification). The repository has **8** manual cases, **7** Playwright UI tests, and **7** Playwright API tests — each type inside the 5–8 cap, with `@smoke` and `@regression` counted inside that cap. Confirm twice is UI-only; confirm-once is a dedicated UI `@regression` test; the API creates an invoice with one `POST /invoices`. HTML reports are generated locally under `PrismStructure/playwright-report/` (gitignored). Committed Passed evidence is the dated snapshot in `PrismStructure/execution-reports/`.
 
 ## Application under test
 
@@ -51,10 +51,10 @@ Not in the repo: Selenium, Cypress, REST Assured, Postman collections, Karate, A
 | Type | Count | Location | In 5–8? |
 | --- | --- | --- | --- |
 | Manual | **8 / 8** | `FunctionalTestCase/functional-test-cases.csv` (`TC-M-01`…`TC-M-08`) | Yes |
-| UI automation | **6 / 8** | `PrismStructure/tests/ui/` | Yes |
+| UI automation | **7 / 8** | `PrismStructure/tests/ui/` | Yes |
 | API automation | **7 / 8** | `PrismStructure/tests/api/` | Yes |
 
-`ActualResult` and `Status` on the CSV are blank (manual suite not executed in this repo). Wiring specs were removed so the cap is not exceeded.
+`ActualResult` and `Status` on the CSV are **Passed** from the 2026-08-26 green run (`npx playwright test`, 14 passed), mapped to UI specs in `PrismStructure/execution-reports/execution-summary.md`. Wiring specs were removed so the cap is not exceeded.
 
 ### Acceptance criteria (Toolshop)
 
@@ -97,6 +97,7 @@ Full row-level tables live in `ai-prompts/test-design.md` (Prompt 3, updated thr
 | Leftover / shared carts | Isolation | `cart_id` in **sessionStorage** | **Data/Money** | P1 | Both | hygiene | **IN** as preconditions (fresh cart / unique user) |
 | COD + billing | UI-AC2 | Cannot pay, or wrong method | **User/Money** | P1 | Both | @smoke | **IN** UI purchase; **IN** API lifecycle |
 | Confirm twice (UI) | Assessment | One Confirm = payment check only | **User/Money** | P1 | **UI only** | @smoke | **IN** `CheckoutPage.confirmTwice` inside purchase |
+| Confirm once (no invoice) | Assessment | First Confirm ↛ invoice | **User/Money** | P2 | **UI** | @regression | **IN** UI purchase confirm-once + manual TC-M-08 |
 | Invoice POST (API) | API-AC2 | Single POST creates the invoice | **Money/Data** | P1 | **API only** | @smoke | **IN** API lifecycle (one POST) |
 | My invoices verification | UI-AC2 | Success screen without list/details | **User/Money** | P1 | **UI** | @smoke | **IN** UI purchase (list + Details). API asserts create-body `invoice_number` / billing, not a separate GET-by-id test |
 | Unauthenticated / malformed invoice | API-AC2 gate | Invoice leak or create without login | **Data** | P2 | **API** | @regression | **IN** missing bearer 401; malformed bearer 401 |
@@ -130,6 +131,7 @@ Full row-level tables live in `ai-prompts/test-design.md` (Prompt 3, updated thr
 | `cart.spec.js` | `@regression cart quantity clamps below 1 and above 99` | UI-06 |
 | `cart.spec.js` | `@regression empty cart shows empty copy and hides proceed to checkout` | UI-07 |
 | `purchase.spec.js` | `@smoke @regression unique customer can search, update cart, checkout COD, and see invoice` | UI-03 |
+| `purchase.spec.js` | `@regression a single Confirm on COD checkout does not create an invoice` | TC-M-08 |
 
 **API implemented (`tests/api/`):**
 
@@ -143,9 +145,9 @@ Full row-level tables live in `ai-prompts/test-design.md` (Prompt 3, updated thr
 | `auth.spec.js` | `@regression POST /invoices with a token but no cart_id is rejected` | CHK-08 |
 | `cart.spec.js` | `@regression GET /carts/{cartId} with an unknown id returns 404` | cart 404 |
 
-**Not automated (deliberate):** dedicated confirm-once UI test (manual TC-M-08; auto waits then second-clicks inside purchase); search no-results; GET invoice by id as its own test; cross-user GET invoice; add-item invalid `product_id` (would hit 8). Spare slots: two UI, one API.
+**Not automated (deliberate):** search no-results; GET invoice by id as its own test; cross-user GET invoice; add-item invalid `product_id` (would hit 8). Spare slots: one UI, one API.
 
-**Commands** (from `PrismStructure/`): `npm test` (6 UI + 7 API); `npm run test:smoke`; `npm run test:regression`; `npm run test:ui`; `npm run test:api`; `npm run report`. Quote `@smoke` / `@regression` in PowerShell.
+**Commands** (from `PrismStructure/`): `npm test` (7 UI + 7 API); `npm run test:smoke`; `npm run test:regression`; `npm run test:ui`; `npm run test:api`; `npm run report`. Quote `@smoke` / `@regression` in PowerShell.
 
 ## Smoke / Regression strategy
 
@@ -153,19 +155,19 @@ Tags are lowercase `@smoke` / `@regression` **in the test title** so `npx playwr
 
 **Smoke** = smallest set that proves the shop can sell: unique register/login/profile, COD E2E with Confirm twice + My invoices, API register → token → products → cart → one COD invoice. **3** Playwright tests carry `@smoke` (auth UI, purchase UI, API lifecycle).
 
-**Regression** = negatives/edges inside the cap, plus the two E2E/lifecycle tests so `test:regression` also re-runs the money path. **12** Playwright tests match `@regression` (purchase and lifecycle are dual-tagged). Manual CSV uses Smoke / Regression only (no sanity tag): Smoke on TC-M-01, 03, 04, 06, 07; Regression on TC-M-02, 05, 08.
+**Regression** = negatives/edges inside the cap, plus the two E2E/lifecycle tests so `test:regression` also re-runs the money path. **13** Playwright tests match `@regression` (purchase and lifecycle are dual-tagged). Manual CSV uses Smoke / Regression only (no sanity tag): Smoke on TC-M-01, 03, 04, 06, 07; Regression on TC-M-02, 05, 08.
 
-Workers are **2** (public SUT / Cloudflare was unstable at Playwright’s default parallelism). HTML reporter writes to `playwright-report/` with `open: 'never'`. Artifacts: `test-results/`. Both folders are in `.gitignore`.
+Workers are **2** (public SUT / Cloudflare was unstable at Playwright’s default parallelism). HTML reporter writes to `playwright-report/` with `open: 'never'`. Artifacts: `test-results/`. Both live folders are in `.gitignore`. Committed snapshot: `PrismStructure/execution-reports/`.
 
 ## Positive / negative / edge coverage
 
 | Layer | Positive | Negative | Edge |
 | --- | --- | --- | --- |
 | Manual | TC-M-01, 03, 04, 06, 07 | TC-M-02 (bad login), TC-M-08 (one Confirm, no invoice) | TC-M-05 (qty 0→1, 100→99) |
-| UI auto | Auth smoke; purchase E2E | Wrong password; duplicate email; empty cart | Qty clamp |
+| UI auto | Auth smoke; purchase E2E | Wrong password; duplicate email; empty cart; confirm-once | Qty clamp |
 | API auto | Lifecycle (register 201, login 200 + token, products, cart, invoice **201**) | No bearer 401; duplicate 409; wrong password 401; malformed bearer 401; missing `cart_id` 422; unknown cart 404 | Extra-schema `cart_items` when present; live vs documented invoice status |
 
-**Valid/invalid transitions covered without a ticket state machine:** empty cart ↛ checkout (UI); qty below/above bounds (UI / TC-M-05); duplicate identity (UI + API); failed auth (UI + API); payment-check then invoice-create (UI); first Confirm ↛ invoice (manual TC-M-08); API invoice without token or without `cart_id`.
+**Valid/invalid transitions covered without a ticket state machine:** empty cart ↛ checkout (UI); qty below/above bounds (UI / TC-M-05); duplicate identity (UI + API); failed auth (UI + API); payment-check then invoice-create (UI); first Confirm ↛ invoice (UI confirm-once + TC-M-08); API invoice without token or without `cart_id`.
 
 ## Test-data strategy
 
@@ -195,11 +197,11 @@ Prompt 2 inventoried flows and selected a UI set; Prompt 3 added API recommendat
 
 ### 4. How I use AI for manual test case design
 
-Prompt 4 wrote eight CSV rows (register/login, bad login, search, two-line cart, qty clamp, COD Confirm twice, My invoices, confirm-once). Prompt 5 reviewed the file and applied four small precondition/expected-result fixes. Types: 5 positive, 2 negative, 1 edge. Non-functional (perf, a11y, PDF) stayed OUT. ActualResult/Status left blank on purpose.
+Prompt 4 wrote eight CSV rows (register/login, bad login, search, two-line cart, qty clamp, COD Confirm twice, My invoices, confirm-once). Prompt 5 reviewed the file and applied four small precondition/expected-result fixes. Types: 5 positive, 2 negative, 1 edge. Non-functional (perf, a11y, PDF) stayed OUT. ActualResult/Status were filled Passed on 2026-08-26 after the green 14-test run, mapped to UI specs (TC-M-08 automated as a focused confirm-once test).
 
 ### 5. How I use AI for automation design
 
-Prompt 7 scaffolded Prism under `PrismStructure/` (config, POM, API helpers, fixtures, data, HTML report, `.env.example` URLs only). Prompts 8–10 implemented 6 UI tests; Prompts 12–13 implemented 7 API tests and deleted wiring specs. Reusable utilities: `createUniqueCustomer`, `confirmTwice`, `fillBilling` (NL lookup), `findInStock`, invoice `create` (one POST). Pinned Playwright; no extra dependencies.
+Prompt 7 scaffolded Prism under `PrismStructure/` (config, POM, API helpers, fixtures, data, HTML report, `.env.example` URLs only). Prompts 8–10 implemented 6 UI tests; Prompts 12–13 implemented 7 API tests and deleted wiring specs. The confirm-once UI `@regression` was added when closing the Prompt 20 audit gap (UI 7 / 8). Reusable utilities: `createUniqueCustomer`, `confirmTwice`, `confirmOnce`, `fillBilling` (NL lookup), `findInStock`, invoice `create` (one POST). Pinned Playwright; no extra dependencies.
 
 ### 6. How I validate and refine AI-generated tests and scripts
 
@@ -213,7 +215,9 @@ Prompt 4/11 recorded placeholders and checked payloads against OpenAPI. Register
 
 `ai-prompts/automation-and-debugging.md` holds traces, screenshots, and HTTP bodies. Examples: cart add-item race; invoice 422 from Austria/Florida vs NL; `fillBilling` waiting for a country value `"Austria"` that is not a select option; Combination Pliers OOS substring locator; public 500/ETIMEDOUT. Fixes wait for real signals (`/payment/check`, `/postcode-lookup?country=NL`, exact heading). I did not add `waitForTimeout`, `{ force: true }`, or swallow errors.
 
-Prompt 16 last local validation (2026-08-26, from `PrismStructure/`): full suite retry **13 passed** after a first-run ETIMEDOUT; smoke **3 passed**; regression **12 passed**; `test:ui` retry **6 passed** after register 500; `test:api` **7 passed**. Those HTML reports were generated locally and remain gitignored. I am not claiming committed Passed reports.
+Prompt 16 last local validation (2026-08-26, from `PrismStructure/`): full suite retry **13 passed** after a first-run ETIMEDOUT; smoke **3 passed**; regression **12 passed**; `test:ui` retry **6 passed** after register 500; `test:api` **7 passed**. Those HTML reports were generated locally and remained gitignored at that time.
+
+Prompt 20 audit (read-only) then a GitHub-vs-PDF check found committed Passed reports missing and CSV Status blank. The close-the-gaps run on 2026-08-26 from `PrismStructure/`: `npx playwright test` → **14 passed** (7 UI + 7 API) in 1.1m on the first try. HTML snapshot committed under `PrismStructure/execution-reports/`.
 
 ### 9. What information I avoid sharing unnecessarily with AI tools
 
@@ -229,7 +233,7 @@ Same loop: extract ACs and conflicts → risk + 5–8 (or project-agreed) cap �
 - Passwords from `uniquePassword()`; optional `TEST_PASSWORD` stays in gitignored `.env`.
 - No hardcoded JWT or `Bearer ey…` in source. Tokens are login responses used in memory for that test.
 - `.env` gitignored; `.env.example` URLs only.
-- HTML reports / `test-results` gitignored so unique emails and tokens from a local run are not pushed.
+- HTML reports / `test-results` gitignored so unique emails and tokens from a local run are not pushed. A dated HTML snapshot without tokens is committed under `PrismStructure/execution-reports/` as PDF evidence.
 - Public SUT instability is reported honestly (500, ETIMEDOUT), not hidden with extra retries or looser expects.
 - AI output is reviewed against live Toolshop and OpenAPI; prompt history records where the model or the spec was wrong.
 
